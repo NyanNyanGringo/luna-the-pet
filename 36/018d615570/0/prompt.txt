@@ -1,0 +1,84 @@
+## User Input
+
+```text
+Здравствуй, дорогой Клауди Кот! Сегодня мы с тобой начинаем новый проект для моей семьи. это полностью open source бесплатный проект без каких-либо прав, ограничений, распространения и так далее. значит смысл заключается проекта в том что у меня есть собака ее зовут луна и я хочу через через управление голосом и веб морду какую-то, развернутую на в ds с подключением через ssh на ubuntu работающую вот связанность telegram в том числе отправлять просто голосовые сообщения, и чтобы через OpenAI OAUTH подключенный бот там обрабатывал эти сообщения, у него был определенный набор команд, которые он может вызывать, фиксировать, разбираться и так далее в окружении. Ну то есть, по сути, это как бы агентская такая система, настройка значит какие функции я бы хотел видеть в данном приложении это возможность фиксировать дату рождения собаки, А возможность добавлять через голос или текст прививки, вакцины по дату. история болезней, чтобы хранилась. Если была кастрация, какие-то фотографии он тоже умел обрабатывать, анализировать. Фиксировал я все это в формате аудио, да и присылал сообщение и так далее вот в том числе фотографий прислал он мог делать была система темы напоминаний о прививках, например, о лекарствах. чтобы он запоминал например данное лекарство принимается один раз три месяца и нужно Нужно напомнить про это лекарство через 3 месяца. Да. Он знал, какой корм мы даем Луне и в исторической перспективе. То есть раньше давали такой, теперь такой. Это важно, потому что должен быть режим чат-бота, где мы разговариваем с агентом. То есть для чего все это делается? В первую очередь для того, чтобы был большой-большой контекст. большой большой контекст и знание собаки то есть если например друг собаки становится плохо или нехорошо, мы обращались к агенту, и он мог подсказать, он бы все знал уже собаки когда она родилась какие у него вакцины были когда были какие таблетки принимала там история болезни как она себя чувствовала и так далее да вот какой корм она принимает откуда вообще эта история собаки да и так далее вот это все можно было вносить то есть это набор много много много функций таких есть. Вот. вот вес собаки имя собаки и еще не знаю там например можно было бы какой-нибудь дневник пик приема пищи, да, тоже ввести, просто как функцию, чтобы там, не знаю, если нужно какие-то заметки быстрые, напоминания. Вот примерно такой сейчас скоб. Чтобы уточнял и задавал вопрос, а дали ли собаке лекарства по напоминанию то есть пустя какое-то время уточнял было ли лекарство да Да
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+## Outline
+
+You are updating the project constitution at `.specify/memory/constitution.md`. This file is a TEMPLATE containing placeholder tokens in square brackets (e.g. `[PROJECT_NAME]`, `[PRINCIPLE_1_NAME]`). Your job is to (a) collect/derive concrete values, (b) fill the template precisely, and (c) propagate any amendments across dependent artifacts.
+
+**Note**: If `.specify/memory/constitution.md` does not exist yet, it should have been initialized from `.specify/templates/constitution-template.md` during project setup. If it's missing, copy the template first.
+
+Follow this execution flow:
+
+1. Load the existing constitution at `.specify/memory/constitution.md`.
+   - Identify every placeholder token of the form `[ALL_CAPS_IDENTIFIER]`.
+   **IMPORTANT**: The user might require less or more principles than the ones used in the template. If a number is specified, respect that - follow the general template. You will update the doc accordingly.
+
+2. Collect/derive values for placeholders:
+   - If user input (conversation) supplies a value, use it.
+   - Otherwise infer from existing repo context (README, docs, prior constitution versions if embedded).
+   - For governance dates: `RATIFICATION_DATE` is the original adoption date (if unknown ask or mark TODO), `LAST_AMENDED_DATE` is today if changes are made, otherwise keep previous.
+   - `CONSTITUTION_VERSION` must increment according to semantic versioning rules:
+     - MAJOR: Backward incompatible governance/principle removals or redefinitions.
+     - MINOR: New principle/section added or materially expanded guidance.
+     - PATCH: Clarifications, wording, typo fixes, non-semantic refinements.
+   - If version bump type ambiguous, propose reasoning before finalizing.
+
+3. Draft the updated constitution content:
+   - Replace every placeholder with concrete text (no bracketed tokens left except intentionally retained template slots that the project has chosen not to define yet—explicitly justify any left).
+   - Preserve heading hierarchy and comments can be removed once replaced unless they still add clarifying guidance.
+   - Ensure each Principle section: succinct name line, paragraph (or bullet list) capturing non‑negotiable rules, explicit rationale if not obvious.
+   - Ensure Governance section lists amendment procedure, versioning policy, and compliance review expectations.
+
+4. Consistency propagation checklist (convert prior checklist into active validations):
+   - Read `.specify/templates/plan-template.md` and ensure any "Constitution Check" or rules align with updated principles.
+   - Read `.specify/templates/spec-template.md` for scope/requirements alignment—update if constitution adds/removes mandatory sections or constraints.
+   - Read `.specify/templates/tasks-template.md` and ensure task categorization reflects new or removed principle-driven task types (e.g., observability, versioning, testing discipline).
+   - Read each command file in `.specify/templates/commands/*.md` (including this one) to verify no outdated references (agent-specific names like CLAUDE only) remain when generic guidance is required.
+   - Read any runtime guidance docs (e.g., `README.md`, `docs/quickstart.md`, or agent-specific guidance files if present). Update references to principles changed.
+
+5. Produce a Sync Impact Report (prepend as an HTML comment at top of the constitution file after update):
+   - Version change: old → new
+   - List of modified principles (old title → new title if renamed)
+   - Added sections
+   - Removed sections
+   - Templates requiring updates (✅ updated / ⚠ pending) with file paths
+   - Follow-up TODOs if any placeholders intentionally deferred.
+
+6. Validation before final output:
+   - No remaining unexplained bracket tokens.
+   - Version line matches report.
+   - Dates ISO format YYYY-MM-DD.
+   - Principles are declarative, testable, and free of vague language ("should" → replace with MUST/SHOULD rationale where appropriate).
+
+7. Write the completed constitution back to `.specify/memory/constitution.md` (overwrite).
+
+8. Output a final summary to the user with:
+   - New version and bump rationale.
+   - Any files flagged for manual follow-up.
+   - Suggested commit message (e.g., `docs: amend constitution to vX.Y.Z (principle additions + governance update)`).
+
+Formatting & Style Requirements:
+
+- Use Markdown headings exactly as in the template (do not demote/promote levels).
+- Wrap long rationale lines to keep readability (<100 chars ideally) but do not hard enforce with awkward breaks.
+- Keep a single blank line between sections.
+- Avoid trailing whitespace.
+
+If the user supplies partial updates (e.g., only one principle revision), still perform validation and version decision steps.
+
+If critical info missing (e.g., ratification date truly unknown), insert `TODO(<FIELD_NAME>): explanation` and include in the Sync Impact Report under deferred items.
+
+Do not create a new template; always operate on the existing `.specify/memory/constitution.md` file.
+
+---
+
+Tool loaded.
+
+---
+
+Tool loaded.

@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "36018d615570",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".specify/memory/constitution.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/36/018d615570/0/metadata.json",
+      "transcript": "/36/018d615570/0/full.jsonl",
+      "context": "/36/018d615570/0/context.md",
+      "content_hash": "/36/018d615570/0/content_hash.txt",
+      "prompt": "/36/018d615570/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 127,
+    "cache_creation_tokens": 34327,
+    "cache_read_tokens": 212435,
+    "output_tokens": 5921,
+    "api_call_count": 10
+  }
+}

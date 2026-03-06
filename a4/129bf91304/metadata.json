@@ -3,7 +3,7 @@
   "checkpoint_id": "a4129bf91304",
   "strategy": "manual-commit",
   "branch": "001-pet-care-assistant",
-  "checkpoints_count": 1,
+  "checkpoints_count": 4,
   "files_touched": [
     ".specify/memory/constitution.md",
     "AGENTS.md",
@@ -24,13 +24,20 @@
       "context": "/a4/129bf91304/1/context.md",
       "content_hash": "/a4/129bf91304/1/content_hash.txt",
       "prompt": "/a4/129bf91304/1/prompt.txt"
+    },
+    {
+      "metadata": "/a4/129bf91304/2/metadata.json",
+      "transcript": "/a4/129bf91304/2/full.jsonl",
+      "context": "/a4/129bf91304/2/context.md",
+      "content_hash": "/a4/129bf91304/2/content_hash.txt",
+      "prompt": "/a4/129bf91304/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 21,
-    "cache_creation_tokens": 80022,
-    "cache_read_tokens": 206258,
-    "output_tokens": 16124,
-    "api_call_count": 12
+    "input_tokens": 66,
+    "cache_creation_tokens": 189678,
+    "cache_read_tokens": 3072688,
+    "output_tokens": 44056,
+    "api_call_count": 45
   }
 }

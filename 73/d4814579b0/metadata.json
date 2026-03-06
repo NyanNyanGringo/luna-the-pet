@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "73d4814579b0",
+  "strategy": "manual-commit",
+  "branch": "001-pet-care-assistant",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "CLAUDE.md",
+    "specs/001-pet-care-assistant/contracts/api.md",
+    "specs/001-pet-care-assistant/contracts/bot-commands.md",
+    "specs/001-pet-care-assistant/contracts/websocket.md",
+    "specs/001-pet-care-assistant/data-model.md",
+    "specs/001-pet-care-assistant/plan.md",
+    "specs/001-pet-care-assistant/quickstart.md",
+    "specs/001-pet-care-assistant/research.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/73/d4814579b0/0/metadata.json",
+      "transcript": "/73/d4814579b0/0/full.jsonl",
+      "context": "/73/d4814579b0/0/context.md",
+      "content_hash": "/73/d4814579b0/0/content_hash.txt",
+      "prompt": "/73/d4814579b0/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 31,
+    "cache_creation_tokens": 49309,
+    "cache_read_tokens": 1191629,
+    "output_tokens": 20112,
+    "api_call_count": 17
+  }
+}

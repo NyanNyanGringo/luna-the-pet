@@ -13,7 +13,7 @@ AI-ассистент по уходу за питомцами: Telegram-бот (
 ## Технический контекст
 
 **Язык/Версия**: Python 3.11+
-**Основные зависимости**: FastAPI, aiogram 3.x, SQLAlchemy 2.x async, Alembic, APScheduler 3.x, OpenAI Python SDK, pydub, httpx
+**Основные зависимости**: FastAPI, aiogram 3.x, SQLAlchemy 2.x async, Alembic, APScheduler 3.x, OpenAI Python SDK, pydub, httpx, cryptography (Fernet для OAuth токенов)
 **Фронтенд**: Vue 3 (Vite) + Tailwind CSS + DaisyUI
 **Хранилище**: PostgreSQL 16 (asyncpg), локальная файловая система для медиа
 **Тестирование**: pytest + pytest-asyncio + httpx AsyncClient + testcontainers
@@ -21,9 +21,17 @@ AI-ассистент по уходу за питомцами: Telegram-бот (
 **Тип проекта**: Веб-сервис + Telegram-бот + SPA-дашборд
 **CI/CD**: GitHub Actions (lint -> test -> build Docker -> deploy по SSH)
 **Линтинг**: Ruff + mypy + pre-commit hooks
-**Производительность**: Нагрузка одной семьи, <3с загрузка страницы, <30с обработка голоса
-**Ограничения**: 2 CPU, 4 ГБ RAM VDS; минимум данных во внешние API
-**Масштаб**: 1 семья, ~5 пользователей, ~5 питомцев, ~10 напоминаний/день
+**Производительность**: Нагрузка одной семьи, <3с загрузка страницы, <30с обработка голоса, напоминания доставляются не позднее 5 минут от целевого времени
+**Ограничения**: 2 CPU, 4 ГБ RAM VDS; минимум данных во внешние API; единая таймзона семьи для расчёта дат и напоминаний
+**Масштаб**: 1 семья (singleton Family per deploy), ~5 пользователей, ~5 питомцев, ~10 напоминаний/день
+
+## Нефункциональные гарантии
+
+- Консистентность таймзоны: парсинг относительных дат и scheduler работают в семейной таймзоне.
+- Аудируемость: любые create/update/delete изменения доменных данных попадают в журнал с автором, действием и временем.
+- Бюджеты задержки и quality-критерии: для SC-001..SC-013 определены явные автоматические проверки (integration/contract/performance/load).
+- Минимизация данных: во внешние AI API отправляется только минимально необходимый payload, это валидируется тестами и ревью кода.
+- Безопасность AI-аналитики: формат health-отчёта фиксирует границу между фактами и AI-рекомендациями, при red flags обязательна явная рекомендация консультации ветеринара.
 
 ## Проверка конституции
 
@@ -35,11 +43,11 @@ AI-ассистент по уходу за питомцами: Telegram-бот (
 | II. Голос как приоритет | PASS | Telegram voice -> Whisper -> Agent -> ответ |
 | III. Комплексная база знаний | PASS | PostgreSQL, 15+ таблиц, историчность данных |
 | IV. Проактивный уход | PASS | APScheduler + контрольные сообщения |
-| V. Архитектура агента | PASS | OpenAI Responses API + function calling + strict mode |
+| V. Архитектура агента | PASS | OpenAI Responses API + function calling + strict mode + guardrail формата (факты/советы) и vet-escalation |
 | VI. Простота для семьи | PASS | Telegram основной, веб вторичный, понятные ошибки |
 | VII. Самохостинг | PASS | Docker Compose на VDS, данные локально, минимум в API |
 
-**Пост-дизайн проверка**: все 7 принципов соблюдены. Нарушений нет.
+**Пост-дизайн проверка**: все 7 принципов соблюдены, включая явный guardrail по разделению фактов/советов и vet-escalation для серьёзных рисков.
 
 ## Структура проекта
 
@@ -65,7 +73,7 @@ backend/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py              # FastAPI app + lifespan + webhook
-│   ├── config.py            # Pydantic Settings
+│   ├── config.py            # Pydantic Settings (+ OAUTH_ENCRYPTION_KEY)
 │   ├── db/
 │   │   ├── __init__.py
 │   │   ├── base.py          # DeclarativeBase, naming conventions
@@ -73,19 +81,23 @@ backend/
 │   │   └── models/          # SQLAlchemy модели
 │   │       ├── __init__.py
 │   │       ├── pet.py
-│   │       ├── health.py    # вакцинации, медзаписи, лекарства
+│   │       ├── health.py    # вакцинации, медзаписи, лекарства, SOS-поля
 │   │       ├── nutrition.py # диета, корм, запасы, кормление
 │   │       ├── reminder.py
 │   │       ├── media.py     # фото
-│   │       ├── family.py    # члены семьи, языки
+│   │       ├── family.py    # члены семьи, инвайты, языки, таймзона семьи, OAuth credentials
+│   │       ├── audit.py     # журнал изменений (audit trail)
 │   │       └── gift.py      # идеи подарков
 │   ├── services/
 │   │   ├── __init__.py
+│   │   ├── family_service.py
 │   │   ├── pet_service.py
 │   │   ├── health_service.py
 │   │   ├── nutrition_service.py
 │   │   ├── reminder_service.py
 │   │   ├── media_service.py
+│   │   ├── audit_service.py
+│   │   ├── openai_auth_service.py  # OAuth PKCE + token refresh + fallback
 │   │   ├── export_service.py
 │   │   └── report_service.py
 │   ├── agent/
@@ -98,12 +110,14 @@ backend/
 │   ├── api/
 │   │   ├── __init__.py
 │   │   ├── deps.py          # Depends() для FastAPI
-│   │   ├── auth.py          # Telegram Login Widget
+│   │   ├── auth.py          # Telegram Login Widget + OpenAI OAuth callback
 │   │   └── routers/
 │   │       ├── __init__.py
 │   │       ├── pets.py
 │   │       ├── health.py
 │   │       ├── dashboard.py
+│   │       ├── settings.py  # timezone и lifecycle инвайтов
+│   │       ├── audit.py     # API истории правок
 │   │       └── chat.py      # WebSocket чат
 │   ├── bot/
 │   │   ├── __init__.py
@@ -114,17 +128,17 @@ backend/
 │   │   │   └── auth.py      # Проверка авторизации семьи
 │   │   ├── handlers/
 │   │   │   ├── __init__.py
-│   │   │   ├── start.py     # /start, /help
+│   │   │   ├── start.py     # /start, /help, приём инвайтов
 │   │   │   ├── pets.py      # /newpet, /pets, /profile, /deletepet
 │   │   │   ├── message.py   # Голос/текст/фото -> агент
 │   │   │   ├── reminders.py # Callback от напоминаний
-│   │   │   ├── commands.py  # /sos, /vetreport, /export, /import, /giftideas
+│   │   │   ├── commands.py  # /sos, /vetreport, /export, /import, /giftideas, /invite, /connectai
 │   │   │   └── dashboard.py # /dashboard
 │   │   └── keyboards/
 │   │       └── __init__.py
 │   └── scheduler/
 │       ├── __init__.py
-│       └── jobs.py          # Задачи планировщика
+│       └── jobs.py          # Timezone-aware задачи планировщика
 ├── alembic/
 │   ├── alembic.ini
 │   ├── env.py

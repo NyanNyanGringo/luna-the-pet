@@ -208,3 +208,60 @@ Service containers для PostgreSQL в тестах. GHA cache для Docker la
 1. `ruff-check --fix` (линтер с автоисправлениями)
 2. `ruff-format` (форматтер)
 3. `mypy` (проверка типов)
+
+---
+
+## 9. Аутентификация OpenAI: OAuth (ChatGPT subscription)
+
+**Решение**: OAuth PKCE flow через ChatGPT subscription (по модели OpenClaw) +
+API key как fallback
+**Обоснование**: Позволяет использовать существующую подписку ChatGPT (Plus/Max)
+вместо оплаты per-token через API key. Для семейного проекта с одним deploy
+это оптимальнее: предсказуемые затраты, не нужно следить за балансом API.
+OpenClaw продемонстрировал стабильность этого подхода для server-side use.
+**Отклонённые альтернативы**:
+- Только API key — работает, но требует отдельного бюджета per-token
+- Anthropic OAuth — не поддерживается политикой Anthropic для таких целей
+- OpenClaw как прокси — лишняя зависимость, достаточно реализовать flow напрямую
+
+### OAuth flow
+
+1. Пользователь вызывает `/connectai` в Telegram или нажимает кнопку в веб-панели
+2. Backend генерирует PKCE code_verifier + code_challenge + random state
+3. Пользователь получает ссылку на `https://auth.openai.com/oauth/authorize?...`
+4. Пользователь авторизуется в браузере (one-time), OpenAI перенаправляет
+   на callback URL (`/api/auth/openai/callback`)
+5. Backend обменивает auth code на access_token + refresh_token
+6. Токены шифруются (Fernet/AES) и сохраняются в `OAuthCredential`
+7. Для каждого API-вызова: проверить `expires_at`, если истёк — refresh
+8. Если refresh failed — fallback на `OPENAI_API_KEY`, уведомить через Telegram
+
+### Хранение токенов
+
+- `OAuthCredential` таблица: `family_id`, `provider` (openai),
+  `access_token_enc`, `refresh_token_enc`, `expires_at`, `status`
+- Шифрование: `cryptography.fernet.Fernet` с ключом из env (`OAUTH_ENCRYPTION_KEY`)
+- Статусы: `active` / `expired` / `revoked`
+
+### Fallback логика
+
+```python
+async def get_openai_client() -> AsyncOpenAI:
+    cred = await get_active_oauth_credential("openai")
+    if cred and not cred.is_expired:
+        return AsyncOpenAI(api_key=cred.decrypted_access_token)
+    if cred and cred.is_expired:
+        refreshed = await refresh_oauth_token(cred)
+        if refreshed:
+            return AsyncOpenAI(api_key=refreshed.decrypted_access_token)
+        await notify_admin_oauth_expired()
+    # Fallback на API key
+    return AsyncOpenAI(api_key=settings.openai_api_key)
+```
+
+### Стабильность сессии
+
+- Refresh token обновляет access token автоматически (без участия пользователя)
+- OpenAI refresh tokens долгоживущие при активной подписке
+- Инвалидация возможна при: смене пароля, отзыве доступа, истечении подписки
+- При инвалидации: мгновенный fallback + одно уведомление (без спама)

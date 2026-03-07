@@ -18,8 +18,10 @@ TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 WEBHOOK_URL=https://luna.example.com/webhook
 WEBHOOK_SECRET=random-secret-string
 
-# OpenAI
+# OpenAI (API key = fallback, OAuth = primary)
 OPENAI_API_KEY=sk-...
+OPENAI_OAUTH_CLIENT_ID=...
+OAUTH_ENCRYPTION_KEY=...  # Fernet key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
 # Database
 DATABASE_URL=postgresql+asyncpg://luna:password@localhost:5432/luna_db

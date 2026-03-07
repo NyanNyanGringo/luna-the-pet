@@ -7,20 +7,22 @@
 ## Диаграмма связей
 
 ```
-FamilyMember ──┬── Pet ──┬── WeightRecord
-               │         ├── Vaccination
-               │         ├── MedicalRecord
-               │         ├── Medication ──── Reminder
-               │         ├── DietRecord
-               │         ├── FeedingEntry
-               │         ├── Note
-               │         ├── Photo
-               │         ├── Supply
-               │         └── GiftIdea
-               │
-               └── LanguagePreference
-                         │
-               ConversationState
+Family ──┬── FamilyMember ──┬── Pet ──┬── WeightRecord
+         │                  │         ├── Vaccination
+         │                  │         ├── MedicalRecord
+         │                  │         ├── Medication ──── Reminder
+         │                  │         ├── DietRecord
+         │                  │         ├── FeedingEntry
+         │                  │         ├── Note
+         │                  │         ├── Photo
+         │                  │         ├── Supply
+         │                  │         └── GiftIdea
+         │                  │
+         │                  └── LanguagePreference
+         │                            │
+         │                  ConversationState
+         │
+         └── OAuthCredential
 ```
 
 ## Сущности
@@ -302,6 +304,31 @@ FamilyMember ──┬── Pet ──┬── WeightRecord
 | turn_count | Integer | DEFAULT 0 | Количество ходов |
 | session_summary | Text | NULLABLE | Сводка при обрезке |
 | updated_at | DateTime(tz) | NOT NULL, DEFAULT now | |
+
+---
+
+### OAuthCredential (Учётные данные OAuth)
+
+| Поле | Тип | Ограничения | Описание |
+|------|-----|-------------|----------|
+| id | Integer | PK, autoincrement | |
+| family_id | Integer | FK -> Family, NOT NULL | Привязка к семье |
+| provider | String(50) | NOT NULL, DEFAULT 'openai' | Провайдер (только openai в v1) |
+| access_token_enc | Text | NOT NULL | Зашифрованный access token (Fernet) |
+| refresh_token_enc | Text | NOT NULL | Зашифрованный refresh token (Fernet) |
+| expires_at | DateTime(tz) | NOT NULL | Время истечения access token |
+| status | String(20) | NOT NULL, DEFAULT 'active' | active, expired, revoked |
+| created_at | DateTime(tz) | NOT NULL, DEFAULT now | |
+| updated_at | DateTime(tz) | NOT NULL, DEFAULT now | |
+
+**Состояния**:
+- `active` + `expires_at` в будущем = рабочий токен
+- `active` + `expires_at` в прошлом = нужен refresh
+- `expired` = refresh не удался, fallback на API key
+- `revoked` = пользователь отвязал OAuth
+
+**Уникальность**: `(family_id, provider)` — один OAuth credential на провайдера на семью
+**Шифрование**: `cryptography.fernet.Fernet` с ключом из `OAUTH_ENCRYPTION_KEY`
 
 ---
 

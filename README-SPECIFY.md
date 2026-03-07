@@ -47,7 +47,7 @@
 # Полный workflow
 
 ```text
-constitution → specify → [clarify?] → plan → [analyze?] → tasks → [checklist?] → implement → taskstoissues
+constitution → specify → [clarify?] → plan → tasks → [analyze?] → [checklist?] → implement → taskstoissues
 ```
 
 
@@ -71,10 +71,14 @@ constitution → specify → [clarify?] → plan → [analyze?] → tasks → [c
 ```text
 /speckit.specify
 →
+/speckit.tasks
+→
 /speckit.implement
 ```
 
-`plan` и `tasks` не нужны, если нет технических unknowns.
+`plan` обычно не нужен, если нет технических unknowns.
+`tasks` нужен, потому что текущая команда `/speckit.implement` читает `tasks.md`
+как обязательный вход.
 
 ### Уровень 3 — Средняя фича
 
@@ -85,15 +89,18 @@ constitution → specify → [clarify?] → plan → [analyze?] → tasks → [c
 →
 /speckit.plan
 →
+/speckit.tasks
+→
 /speckit.implement
 ```
 
-`tasks` можно пропустить, если задач меньше ~10.
+Даже если задач мало, текущая команда `/speckit.implement` всё равно требует
+`tasks.md`, поэтому шаг `/speckit.tasks` пропускать нельзя.
 
 ### Уровень 4 — Большая фича
 
 ```text
-constitution → specify → plan → tasks → implement → taskstoissues
+constitution → specify → [clarify?] → plan → tasks → [analyze?] → [checklist?] → implement → taskstoissues
 ```
 
 ### Пример: тёмная тема
@@ -117,5 +124,4 @@ constitution → specify → plan → tasks → implement → taskstoissues
 | Есть технические unknowns? | Уровень 3+ |
 | Меняется только UI? | Уровень 1–2 |
 | Это правка существующего? | Уровень 1 |
-
 

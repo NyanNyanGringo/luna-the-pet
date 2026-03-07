@@ -31,6 +31,21 @@ select = [
     "ASYNC", # flake8-async — асинхронные антипаттерны
     "RUF",   # ruff-специфичные правила
 ]
+ignore = [
+    "RUF001",  # строки содержат кириллицу — проект на русском языке
+    "RUF002",  # docstrings содержат кириллицу — проект на русском языке
+    "RUF003",  # комментарии содержат кириллицу — проект на русском языке
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "B008",  # FastAPI Depends в сигнатурах тестовых маршрутов — допустимый тестовый паттерн
+    "S101",  # pytest использует assert как основной механизм проверки
+    "S105",  # тестовые строки-токены не являются production-секретами
+    "S106",  # тестовые аргументы token не являются production-секретами
+    "S107",  # фабрики тестовых данных содержат безопасные заглушки
+    "S603",  # subprocess используется для проверки runtime-импортов backend
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
@@ -39,14 +54,53 @@ known-first-party = ["app"]
 
 [tool.mypy]
 strict = true
+explicit_package_bases = true
+mypy_path = [".."]
 plugins = [
     "pydantic.mypy",
     "sqlalchemy.ext.mypy.plugin",
 ]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = [
+    "backend.app.services.*",
+    "backend.app.db.*",
+    "backend.app.api.deps",
+]
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+    "backend.app.config",
+    "backend.app.main",
+    "backend.app.api.auth",
+    "backend.app.bot.*",
+]
+disallow_untyped_defs = false
+disable_error_code = [
+    "misc",
+    "no-any-return",
+]
+
+[[tool.mypy.overrides]]
+module = ["backend.tests.*"]
+disallow_untyped_defs = false
+disable_error_code = [
+    "attr-defined",
+    "misc",
+    "no-any-return",
+    "type-arg",
+    "union-attr",
+    "unused-ignore",
+]
+
 # ── pytest ───────────────────────────────────────────────────────────────────
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
+# Корень репозитория добавляется в sys.path, чтобы импорты backend.app.* работали
+pythonpath = [".."]

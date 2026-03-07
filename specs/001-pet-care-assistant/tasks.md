@@ -41,34 +41,34 @@
 
 **CRITICAL**: Работа над US1-US11 невозможна до завершения этой фазы
 
-- [ ] T007 Create Pydantic Settings config (DATABASE_URL, TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, OPENAI_OAUTH_CLIENT_ID, OAUTH_ENCRYPTION_KEY, JWT_SECRET, WEBHOOK_URL, WEBHOOK_SECRET, MEDIA_DIR, DEBUG) in backend/app/config.py
-- [ ] T008 [P] Create SQLAlchemy DeclarativeBase with MetaData naming conventions in backend/app/db/base.py
-- [ ] T009 [P] Create async engine (asyncpg) and async_session_maker (expire_on_commit=False) in backend/app/db/session.py
-- [ ] T010 Initialize Alembic with async template (alembic init -t async) and configure env.py in backend/alembic/
-- [ ] T011 [P] Create Family model (singleton-per-deploy), FamilyMember model (Telegram user ID as PK, is_authorized, family role, family_id FK) in backend/app/db/models/family.py
-- [ ] T012 [P] Create Pet model with family_id FK ownership (soft-delete via is_active per FR-007a) in backend/app/db/models/pet.py
-- [ ] T013 Create models __init__.py re-exporting all models for Alembic autodiscovery in backend/app/db/models/__init__.py
-- [ ] T014 Generate initial Alembic migration for Family, FamilyMember, Pet tables and core FK/indexes
-- [ ] T129 Implement singleton family bootstrap and guard (auto-create default Family on first /start, reject creation of second active Family) in backend/app/services/family_service.py and backend/app/bot/handlers/start.py
-- [ ] T015 [P] Create FastAPI application with lifespan context manager (bot start/stop, scheduler) in backend/app/main.py
-- [ ] T016 [P] Implement FastAPI dependencies (get_db async generator, get_current_user from JWT) in backend/app/api/deps.py
-- [ ] T017 [P] Create aiogram Bot and Dispatcher with router registration skeleton in backend/app/bot/create.py
-- [ ] T018 Implement DbSessionMiddleware for aiogram (injects session into handler data) in backend/app/bot/middlewares/db.py
-- [ ] T019 [P] Implement family auth middleware for aiogram (check is_authorized, validate invite/code state and expiry per FR-016a) in backend/app/bot/middlewares/auth.py
-- [ ] T020 Integrate aiogram webhook endpoint (POST /webhook, secret_token verification) into backend/app/main.py
-- [ ] T021 Implement /start (family registration, invite/code acceptance) and /help handlers in backend/app/bot/handlers/start.py
-- [ ] T101 [P] Create FamilySettings model (family_id, timezone IANA, date_locale defaults) in backend/app/db/models/family.py
-- [ ] T102 [P] Create FamilyInvite model (invite_code, created_by, expires_at, revoked_at, used_by, used_at, status) in backend/app/db/models/family.py
-- [ ] T103 [P] Create ChangeLog model (entity_type, entity_id, action, actor_id, changed_at, diff_json) in backend/app/db/models/audit.py
-- [ ] T104 Generate Alembic migration for FamilySettings, FamilyInvite, ChangeLog and related indexes
-- [ ] T105 Implement family_service (set/get timezone, create/revoke/list invites, validate one-time code lifecycle) in backend/app/services/family_service.py
-- [ ] T106 Implement /invite command flow (create one-time code, show expiry, revoke active invites) in backend/app/bot/handlers/commands.py
-- [ ] T145 [P] Create OAuthCredential model (family_id, provider, access_token_enc, refresh_token_enc, expires_at, status: active/expired/revoked) in backend/app/db/models/family.py
-- [ ] T146 Generate Alembic migration for OAuthCredential table
-- [ ] T147 Implement openai_auth_service (PKCE flow generation, code exchange, token encrypt/decrypt via Fernet, auto-refresh, fallback to OPENAI_API_KEY, admin notification on expiry per FR-026a) in backend/app/services/openai_auth_service.py
-- [ ] T148 Add OpenAI OAuth callback endpoint (GET /api/auth/openai/callback — exchange code for tokens, store encrypted in DB) in backend/app/api/auth.py
-- [ ] T149 Implement /connectai command in Telegram (generate PKCE OAuth URL, send link to user, handle success/failure notification) in backend/app/bot/handlers/commands.py
-- [ ] T150 Update agent brain to use openai_auth_service for client initialization (OAuth primary, API key fallback, transparent switching) in backend/app/agent/brain.py
+- [x] T007 Create Pydantic Settings config (DATABASE_URL, TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, OPENAI_OAUTH_CLIENT_ID, OAUTH_ENCRYPTION_KEY, JWT_SECRET, WEBHOOK_URL, WEBHOOK_SECRET, MEDIA_DIR, DEBUG) in backend/app/config.py
+- [x] T008 [P] Create SQLAlchemy DeclarativeBase with MetaData naming conventions in backend/app/db/base.py
+- [x] T009 [P] Create async engine (asyncpg) and async_session_maker (expire_on_commit=False) in backend/app/db/session.py
+- [x] T010 Initialize Alembic with async template (alembic init -t async) and configure env.py in backend/alembic/
+- [x] T011 [P] Create Family model (singleton-per-deploy), FamilyMember model (Telegram user ID as PK, is_authorized, family role, family_id FK) in backend/app/db/models/family.py
+- [x] T012 [P] Create Pet model with family_id FK ownership (soft-delete via is_active per FR-007a) in backend/app/db/models/pet.py
+- [x] T013 Create models __init__.py re-exporting all models for Alembic autodiscovery in backend/app/db/models/__init__.py
+- [x] T014 Generate initial Alembic migration for Family, FamilyMember, Pet tables and core FK/indexes
+- [x] T129 Implement singleton family bootstrap and guard (auto-create default Family on first /start, reject creation of second active Family) in backend/app/services/family_service.py and backend/app/bot/handlers/start.py
+- [x] T015 [P] Create FastAPI application with lifespan context manager (bot start/stop, scheduler) in backend/app/main.py
+- [x] T016 [P] Implement FastAPI dependencies (get_db async generator, get_current_user from JWT) in backend/app/api/deps.py
+- [x] T017 [P] Create aiogram Bot and Dispatcher with router registration skeleton in backend/app/bot/create.py
+- [x] T018 Implement DbSessionMiddleware for aiogram (injects session into handler data) in backend/app/bot/middlewares/db.py
+- [x] T019 [P] Implement family auth middleware for aiogram (check is_authorized, validate invite/code state and expiry per FR-016a) in backend/app/bot/middlewares/auth.py
+- [x] T020 Integrate aiogram webhook endpoint (POST /webhook, secret_token verification) into backend/app/main.py
+- [x] T021 Implement /start (family registration, invite/code acceptance) and /help handlers in backend/app/bot/handlers/start.py
+- [x] T101 [P] Create FamilySettings model (family_id, timezone IANA, date_locale defaults) in backend/app/db/models/family.py
+- [x] T102 [P] Create FamilyInvite model (invite_code, created_by, expires_at, revoked_at, used_by, used_at, status) in backend/app/db/models/family.py
+- [x] T103 [P] Create ChangeLog model (entity_type, entity_id, action, actor_id, changed_at, diff_json) in backend/app/db/models/audit.py
+- [x] T104 Generate Alembic migration for FamilySettings, FamilyInvite, ChangeLog and related indexes
+- [x] T105 Implement family_service (set/get timezone, create/revoke/list invites, validate one-time code lifecycle) in backend/app/services/family_service.py
+- [x] T106 Implement /invite command flow (create one-time code, show expiry, revoke active invites) in backend/app/bot/handlers/commands.py
+- [x] T145 [P] Create OAuthCredential model (family_id, provider, access_token_enc, refresh_token_enc, expires_at, status: active/expired/revoked) in backend/app/db/models/family.py
+- [x] T146 Generate Alembic migration for OAuthCredential table
+- [x] T147 Implement openai_auth_service (PKCE flow generation, code exchange, token encrypt/decrypt via Fernet, auto-refresh, fallback to OPENAI_API_KEY, admin notification on expiry per FR-026a) in backend/app/services/openai_auth_service.py
+- [x] T148 Add OpenAI OAuth callback endpoint (GET /api/auth/openai/callback — exchange code for tokens, store encrypted in DB) in backend/app/api/auth.py
+- [x] T149 Implement /connectai command in Telegram (generate PKCE OAuth URL, send link to user, handle success/failure notification) in backend/app/bot/handlers/commands.py
+- [x] T150 Update agent brain to use openai_auth_service for client initialization (OAuth primary, API key fallback, transparent switching) in backend/app/agent/brain.py
 
 **Checkpoint**: Фундамент готов — можно начинать реализацию пользовательских историй
 

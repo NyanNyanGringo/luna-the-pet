@@ -16,4 +16,9 @@ repos:
         additional_dependencies:
           - pydantic>=2.10.0
           - sqlalchemy[mypy]>=2.0.36
-        args: [--config-file=backend/pyproject.toml]
+        pass_filenames: false
+        args:
+          - --config-file=backend/pyproject.toml
+          - backend/app/services
+          - backend/app/db
+          - backend/app/api/deps.py

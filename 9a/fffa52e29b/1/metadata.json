@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "9afffa52e29b",
+  "session_id": "a53f7826-ffe9-47f1-8570-9573e337995f",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-07T19:49:09.850961Z",
+  "branch": "001-pet-care-assistant",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "AGENTS.md",
+    "README.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "db9e6542843c",
+  "transcript_identifier_at_start": "4a7e56f9-08ef-4abb-b82b-f74ee583e64c",
+  "token_usage": {
+    "input_tokens": 861,
+    "cache_creation_tokens": 563430,
+    "cache_read_tokens": 8794997,
+    "output_tokens": 42011,
+    "api_call_count": 83
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-07T19:49:07.937803Z",
+    "agent_lines": 0,
+    "human_added": 27,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 27,
+    "agent_percentage": 0
+  },
+  "transcript_path": ".claude/projects/-Users-user-github-luna-the-dog/a53f7826-ffe9-47f1-8570-9573e337995f.jsonl"
+}

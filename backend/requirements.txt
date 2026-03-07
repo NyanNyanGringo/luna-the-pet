@@ -1,0 +1,36 @@
+# Основные зависимости проекта Luna the Dog.
+# Веб-фреймворк, Telegram-бот, БД, планировщик, AI, утилиты.
+
+# --- Веб-фреймворк и сервер ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+
+# --- Telegram-бот ---
+aiogram>=3.15.0
+
+# --- База данных ---
+sqlalchemy[asyncio]>=2.0.36
+asyncpg>=0.30.0
+alembic>=1.14.0
+
+# --- Планировщик задач ---
+apscheduler>=3.11.0
+
+# --- AI / OpenAI ---
+openai>=1.60.0
+
+# --- Валидация и настройки ---
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+
+# --- Аудио (голосовые сообщения) ---
+pydub>=0.25.1
+audioop-lts>=0.2.1  # audioop удалён в Python 3.13, pydub зависит от него
+
+# --- HTTP-клиент ---
+httpx>=0.28.0
+
+# --- Аутентификация и криптография ---
+python-jose[cryptography]>=3.3.0
+python-multipart>=0.0.18
+cryptography>=44.0.0

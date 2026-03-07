@@ -26,12 +26,12 @@
 
 **Purpose**: Создание структуры проекта, зависимости, инструменты разработки
 
-- [ ] T001 Create project directory structure per plan.md (backend/app/, frontend/src/, backend/tests/, backend/alembic/)
-- [ ] T002 [P] Initialize Python backend: pyproject.toml, requirements.txt, requirements-dev.txt in backend/
-- [ ] T003 [P] Initialize Vue 3 frontend with Vite, Tailwind CSS, DaisyUI in frontend/ (package.json, vite.config.js, tailwind.config.js, postcss.config.js)
-- [ ] T004 [P] Configure Ruff, mypy, pre-commit hooks in pyproject.toml and .pre-commit-config.yaml
-- [ ] T005 [P] Create multi-stage Dockerfile (node:slim + python:3.11-slim) and docker-compose.yml in project root
-- [ ] T006 [P] Create .env.example with all environment variables per quickstart.md in project root
+- [x] T001 Create project directory structure per plan.md (backend/app/, frontend/src/, backend/tests/, backend/alembic/)
+- [x] T002 [P] Initialize Python backend: pyproject.toml, requirements.txt, requirements-dev.txt in backend/
+- [x] T003 [P] Initialize Vue 3 frontend with Vite, Tailwind CSS, DaisyUI in frontend/ (package.json, vite.config.js, tailwind.config.js, postcss.config.js)
+- [x] T004 [P] Configure Ruff, mypy, pre-commit hooks in pyproject.toml and .pre-commit-config.yaml
+- [x] T005 [P] Create multi-stage Dockerfile (node:slim + python:3.11-slim) and docker-compose.yml in project root
+- [x] T006 [P] Create .env.example with all environment variables per quickstart.md in project root
 
 ---
 

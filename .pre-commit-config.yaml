@@ -1,0 +1,19 @@
+# Конфигурация pre-commit хуков для проекта Luna the Dog.
+# Запускает линтер (Ruff), форматирование (Ruff) и проверку типов (mypy) перед каждым коммитом.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic>=2.10.0
+          - sqlalchemy[mypy]>=2.0.36
+        args: [--config-file=backend/pyproject.toml]

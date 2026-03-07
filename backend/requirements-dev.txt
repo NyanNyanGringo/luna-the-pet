@@ -1,0 +1,16 @@
+# Зависимости для разработки и тестирования.
+# Включает всё из requirements.txt + инструменты качества кода.
+
+-r requirements.txt
+
+# --- Тестирование ---
+pytest>=8.3.0
+pytest-asyncio>=0.25.0
+pytest-cov>=6.0.0
+httpx>=0.28.0
+testcontainers[postgres]>=4.0.0
+
+# --- Качество кода ---
+pre-commit>=4.0.0
+ruff>=0.9.0
+mypy>=1.14.0

@@ -1,0 +1,52 @@
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.whl
+
+# === Node.js ===
+node_modules/
+frontend/dist/
+
+# === Среда разработки ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === ОС ===
+.DS_Store
+Thumbs.db
+*.tmp
+
+# === Переменные окружения и секреты ===
+.env
+.env.*
+!.env.example
+
+# === Логи ===
+*.log
+*.log.*
+
+# === Тесты и покрытие ===
+.pytest_cache/
+.coverage
+htmlcov/
+coverage/
+coverage.xml
+
+# === Линтеры и кэш ===
+.mypy_cache/
+.ruff_cache/
+
+# === Медиафайлы (загрузки пользователей) ===
+/data/
+
+# === Docker (игнорировать override) ===
+docker-compose.override.yml

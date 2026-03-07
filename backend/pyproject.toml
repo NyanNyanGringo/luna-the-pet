@@ -1,0 +1,52 @@
+# Конфигурация проекта Luna the Dog — AI-ассистент по уходу за питомцами.
+# Содержит метаданные пакета, настройки линтера (Ruff), типизации (mypy) и тестов (pytest).
+
+[project]
+name = "luna-the-dog"
+version = "0.1.0"
+description = "AI-ассистент по уходу за питомцами: Telegram-бот + веб-панель"
+requires-python = ">=3.11"
+
+# ── Ruff ─────────────────────────────────────────────────────────────────────
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["app"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle — ошибки стиля
+    "W",     # pycodestyle — предупреждения стиля
+    "F",     # pyflakes — логические ошибки
+    "UP",    # pyupgrade — устаревший синтаксис
+    "B",     # flake8-bugbear — частые баги
+    "C4",    # flake8-comprehensions — оптимизация генераторов
+    "I",     # isort — сортировка импортов
+    "N",     # pep8-naming — именование
+    "S",     # flake8-bandit — безопасность
+    "T20",   # flake8-print — забытые print()
+    "PT",    # flake8-pytest-style — стиль тестов
+    "SIM",   # flake8-simplify — упрощение кода
+    "ASYNC", # flake8-async — асинхронные антипаттерны
+    "RUF",   # ruff-специфичные правила
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+# ── mypy ─────────────────────────────────────────────────────────────────────
+
+[tool.mypy]
+strict = true
+plugins = [
+    "pydantic.mypy",
+    "sqlalchemy.ext.mypy.plugin",
+]
+ignore_missing_imports = true
+
+# ── pytest ───────────────────────────────────────────────────────────────────
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

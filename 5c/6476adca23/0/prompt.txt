@@ -1,0 +1,1573 @@
+## User Input
+
+```text
+Привет, дорогой Клауди Код! Мы продолжаем разработку нового проекта через Specify. В принципе вся информация о проекте уже есть. Что я хотел тебя попросить. мы сейчас будем составлять план вот соответственно я подаю тебе эту команду и единственное что я бы хотел отметить я не Я не знаю, здесь на этом этапе "план" или на этапе "tasks" это надо отмечать, но смысл в том что я бы хотел сразу нам разработать я сиди pipeline и что немаловажно отдельным тоже таском разработать там pipeline связанный с линтерами до автоматическими то есть чтобы максимум вот этих проверок они сразу у нас проходили и код был чистый и аккуратный сразу
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+## Outline
+
+1. **Setup**: Run `.specify/scripts/bash/setup-plan.sh --json` from repo root and parse JSON for FEATURE_SPEC, IMPL_PLAN, SPECS_DIR, BRANCH. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+
+2. **Load context**: Read FEATURE_SPEC and `.specify/memory/constitution.md`. Load IMPL_PLAN template (already copied).
+
+3. **Execute plan workflow**: Follow the structure in IMPL_PLAN template to:
+   - Fill Technical Context (mark unknowns as "NEEDS CLARIFICATION")
+   - Fill Constitution Check section from constitution
+   - Evaluate gates (ERROR if violations unjustified)
+   - Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+   - Phase 1: Generate data-model.md, contracts/, quickstart.md
+   - Phase 1: Update agent context by running the agent script
+   - Re-evaluate Constitution Check post-design
+
+4. **Stop and report**: Command ends after Phase 2 planning. Report branch, IMPL_PLAN path, and generated artifacts.
+
+## Phases
+
+### Phase 0: Outline & Research
+
+1. **Extract unknowns from Technical Context** above:
+   - For each NEEDS CLARIFICATION → research task
+   - For each dependency → best practices task
+   - For each integration → patterns task
+
+2. **Generate and dispatch research agents**:
+
+   ```text
+   For each unknown in Technical Context:
+     Task: "Research {unknown} for {feature context}"
+   For each technology choice:
+     Task: "Find best practices for {tech} in {domain}"
+   ```
+
+3. **Consolidate findings** in `research.md` using format:
+   - Decision: [what was chosen]
+   - Rationale: [why chosen]
+   - Alternatives considered: [what else evaluated]
+
+**Output**: research.md with all NEEDS CLARIFICATION resolved
+
+### Phase 1: Design & Contracts
+
+**Prerequisites:** `research.md` complete
+
+1. **Extract entities from feature spec** → `data-model.md`:
+   - Entity name, fields, relationships
+   - Validation rules from requirements
+   - State transitions if applicable
+
+2. **Define interface contracts** (if project has external interfaces) → `/contracts/`:
+   - Identify what interfaces the project exposes to users or other systems
+   - Document the contract format appropriate for the project type
+   - Examples: public APIs for libraries, command schemas for CLI tools, endpoints for web services, grammars for parsers, UI contracts for applications
+   - Skip if project is purely internal (build scripts, one-off tools, etc.)
+
+3. **Agent context update**:
+   - Run `.specify/scripts/bash/update-agent-context.sh claude`
+   - These scripts detect which AI agent is in use
+   - Update the appropriate agent-specific context file
+   - Add only new technology from current plan
+   - Preserve manual additions between markers
+
+**Output**: data-model.md, /contracts/*, quickstart.md, agent-specific file
+
+## Key rules
+
+- Use absolute paths
+- ERROR on gate failures or unresolved clarifications
+
+---
+
+Tool loaded.
+
+---
+
+<task-notification>
+<task-id>aa230ac9a5aa40c34</task-id>
+<tool-use-id>toolu_01D2tuCNhNvpYVuh5ADpdVqA</tool-use-id>
+<status>completed</status>
+<summary>Agent "Research scheduler and ORM choices" completed</summary>
+<result>Теперь у меня достаточно информации для формирования обоснованных рекомендаций. Вот результаты исследования.
+
+---
+
+## 1. Планировщик напоминаний
+
+### Рассмотренные варианты
+
+| Критерий | APScheduler 3.x | APScheduler 4.x | Celery Beat | arq | Кастомный asyncio |
+|---|---|---|---|---|---|
+| Async-native | Частично (AsyncIOScheduler) | Да, полностью | Нет | Да | Да |
+| Персистентность в PostgreSQL | Да (SQLAlchemyJobStore) | Да (SQLAlchemyDataStore) | Через django-celery-beat / отдельный пакет | Нет (только Redis) | Нужно писать самому |
+| Обработка пропущенных задач | Да (misfire_grace_time + coalesce) | Да (CoalescePolicy + misfire_grace_time) | Нет из коробки | Нет | Нужно писать самому |
+| Внешние зависимости | Нет (in-process) | Нет (in-process) | Redis/RabbitMQ + worker-процессы | Redis | Нет |
+| Зрелость | Стабильный, 7.3k звезд | Альфа (4.0.0a6, апрель 2025) | Очень зрелый | Зрелый, но нишевый | N/A |
+
+### Рекомендация: APScheduler 3.x (стабильная ветка)
+
+**Обоснование:**
+
+- **Масштаб проекта**: Для одной семьи и ~10 напоминаний в день Celery — это огромный перебор. Celery требует Redis/RabbitMQ, отдельные worker и beat процессы. Это три лишних сервиса в Docker Compose для задачи, которую можно решить in-process.
+
+- **APScheduler 4.x отпадает**: На март 2026 года он все ещё в альфе (4.0.0a6). В issue-трекере есть баги с потерей задач и блокировками event broker. Для продакшена, где напоминания о лекарствах критичны, это неприемлемый риск.
+
+- **arq отпадает**: Не поддерживает PostgreSQL как бэкенд (только Redis). Не имеет механизма для обработки пропущенных задач.
+
+- **Кастомный asyncio-планировщик отпадает**: Придётся писать персистентность, обработку пропусков и coalescing вручную. Это недели работы для сомнительного результата.
+
+- **APScheduler 3.x — оптимальный выбор**:
+  - `SQLAlchemyJobStore` с PostgreSQL — задачи переживают перезагрузки.
+  - `misfire_grace_time=None` + `coalesce=True` — если сервер был выключен, при запуске пропущенное напоминание сработает один раз.
+  - `AsyncIOScheduler` работает в том же event loop, что и FastAPI/aiogram — нет лишних процессов.
+  - Стабильный, проверенный временем (7.3k звёзд, 748 форков).
+
+**Важный нюанс**: Jobstore в APScheduler 3.x формально синхронный (использует SQLAlchemy sync через thread pool). При 10 задачах в день это никак не повлияет на производительность. Когда APScheduler 4.x выйдет в стабильный релиз, миграция будет несложной.
+
+---
+
+## 2. ORM / слой работы с базой данных
+
+### Рассмотренные варианты
+
+| Критерий | SQLAlchemy 2.x async | asyncpg (raw) | Tortoise ORM |
+|---|---|---|---|
+| Миграции | Alembic — золотой стандарт | Нет (руками или сторонние) | Aerich — нестабильный; новый встроенный инструмент с багами |
+| Производительность | ~1.2ms latency (бенчмарк 2026) | ~0.35ms latency | Сопоставима с SQLAlchemy (оба на asyncpg под капотом) |
+| Async-native | Да (с 2.0, через asyncpg) | Да, полностью | Да, полностью |
+| Экосистема | Огромная, 20+ лет | Минимальная | Растущая, но меньше |
+| DX при ~15 таблицах | Хороший, есть кривая обучения | Плохой — весь SQL руками | Отличный (Django-style), но инструменты миграции подводят |
+
+### Рекомендация: SQLAlchemy 2.x async + Alembic
+
+**Обоснование:**
+
+- **Alembic — главный аргумент**: Для проекта с ~15 таблицами миграции — это не опция, а необходимость. Alembic — единственный полностью зрелый инструмент миграций в Python-экосистеме. Aerich (для Tortoise ORM) имеет задокументированные баги: перевернутые upgrade/downgrade при работе с индексами, проблемы с переименованием таблиц, несовместимости между версиями. Новый встроенный инструмент миграций Tortoise (v0.25+) тоже сырой — баги с Meta.indexes, отсутствие `sqlmigrate`. Для семейного проекта, где нет команды, способной разбираться в сломанных миграциях — это неоправданный риск.
+
+- **asyncpg raw отпадает**: При 15 таблицах писать и поддерживать все запросы вручную — это огромный объём бойлерплейта. Нет автоматических миграций. Производительность asyncpg (0.35ms vs 1.2ms) на 2 CPU / 4 GB RAM при нагрузке одной семьи абсолютно нерелевантна.
+
+- **SQLAlchemy 2.x — правильный выбор**:
+  - Декларативные модели с type hints (`Mapped[str]`, `mapped_column()`).
+  - `AsyncSession` с `asyncpg` под капотом — нативная async работа.
+  - Alembic с `alembic init -t async` — автогенерация миграций с async-поддержкой.
+  - Огромная экосистема: любой вопрос уже отвечен на StackOverflow.
+  - Лучшие практики для FastAPI уже стандартизированы (dependency injection через `Depends()`, connection pooling, `expire_on_commit=False`).
+  - Поддержка raw SQL через `text()` для сложных запросов, если потребуется.
+
+**Рекомендуемые паттерны** (из исследования best practices):
+- Именование индексов через `MetaData(naming_convention=...)` для PostgreSQL.
+- Шаблон файлов миграций: `file_template = %%(year)d-%%(month).2d-%%(day).2d_%%(slug)s`.
+- `expire_on_commit=False` для AsyncSession.
+- Repository-паттерн для CRUD-операций.
+
+---
+
+## 3. Стратегия хранения изображений/файлов
+
+### Рассмотренные варианты
+
+| Критерий | Локальная файловая система | MinIO (S3-compatible) |
+|---|---|---|
+| Сложность настройки | Минимальная (mkdir) | Средняя (ещё один контейнер в Docker Compose) |
+| Бэкап | tar / rsync — просто | Нужно бэкапить отдельно |
+| S3 API совместимость | Нет | Да |
+| Миграция в облако | Потребует переписать код | Переключить endpoint |
+| Состояние проекта (2025-2026) | N/A | Community Edition в maintenance mode, функции урезаны |
+
+### Рекомендация: Локальная файловая система
+
+**Обоснование:**
+
+- **MinIO в maintenance mode**: С конца 2025 года MinIO Community Edition перестал принимать новые изменения, не ревьюит issues и PR, обещает только критические security-фиксы "на индивидуальной основе". Для нового проекта закладываться на замороженный инструмент — плохая идея. Альтернативы (Garage, SeaweedFS, RustFS) ещё молоды и не проверены на дистанции.
+
+- **Масштаб проекта не требует объектного хранилища**: Фотографии питомцев и экспортированные документы для одной семьи — это десятки гигабайт максимум. Для такого объёма S3-compatible хранилище — это оверинжиниринг.
+
+- **Локальная ФС — оптимальный выбор**:
+  - Структура каталогов: `/data/uploads/{pet_id}/{year}/{month}/` — понятная организация.
+  - Бэкап: `rsync` или `tar` директории `/data/` — один скрипт в crontab.
+  - В коде — абстракция через интерфейс (protocol/ABC): `FileStorage` с методами `save()`, `get()`, `delete()`. Реализация — `LocalFileStorage`. Если когда-нибудь понадобится S3, достаточно будет написать `S3FileStorage` без изменения бизнес-логики.
+  - Docker: volume mount `/data/uploads` — данные переживут пересоздание контейнеров.
+  - На VDS с 4 GB RAM MinIO сожрёт минимум 200-400 MB на ровном месте.
+
+**Рекомендация по абстракции** (для будущей гибкости):
+
+```python
+class FileStorage(Protocol):
+    async def save(self, path: str, data: bytes) -> str: ...
+    async def get(self, path: str) -> bytes: ...
+    async def delete(self, path: str) -> None: ...
+```
+
+Это позволит заменить бэкенд хранения в одну строку конфигурации, если потребуется.
+
+---
+
+## Итоговый стек
+
+| Компонент | Выбор | Версия |
+|---|---|---|
+| Планировщик | APScheduler 3.x | 3.11.x (стабильная) |
+| ORM | SQLAlchemy 2.x async + Alembic | 2.0+ |
+| Хранение файлов | Локальная ФС с абстракцией | N/A |
+
+Все три решения объединяет общий принцип: для маленького семейного проекта на одном VDS простота и надёжность важнее масштабируемости и модных технологий.</result>
+<usage><total_tokens>40920</total_tokens><tool_uses>11</tool_uses><duration_ms>110930</duration_ms></usage>
+</task-notification>
+Full transcript available at: /private/tmp/claude-501/-Users-user-github-luna-the-dog/tasks/aa230ac9a5aa40c34.output
+
+---
+
+<task-notification>
+<task-id>adc04c31619a08dbe</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<status>completed</status>
+<summary>Agent "Research frontend SPA for dashboard" completed</summary>
+<result>I now have sufficient research data. Let me compose the recommendation.
+
+---
+
+## Рекомендация по фронтенду для веб-панели Luna the Dog
+
+### Вердикт: Vue 3 (Vite) + Tailwind CSS + DaisyUI
+
+---
+
+### 1. Анализ вариантов
+
+#### HTMX + Jinja2 (отклонено)
+
+На первый взгляд самый привлекательный вариант: нулевой JavaScript, всё в одном Python-процессе, идеальная интеграция с FastAPI. Однако для **этого конкретного проекта** есть критические проблемы:
+
+- **Чат-интерфейс с AI-агентом** -- самый сложный компонент. HTMX может работать с WebSocket и SSE, но стриминг ответов AI (token-by-token, как ChatGPT) через HTMX требует нетривиальных обходных путей. Сообщество HTMX подтверждает: "It does feel a bit hacky... you need to update a lot of your non-HTMX Javascript to play nicely with it."
+- **Графики веса и таймлайны** -- HTMX принципиально работает с HTML-фрагментами (hypermedia), а Chart.js / ApexCharts работают с JSON-данными. Возникает "impedance mismatch" -- нужно будет писать обычный JavaScript для графиков, что сводит на нет преимущество "zero JS".
+- **Календарь** -- сообщество HTMX прямо говорит: "you can integrate a JS one into a page with HTMX, but you won't implement a calendar in HTMX itself".
+- **Итог**: для простого CRUD-дашборда HTMX идеален. Но когда нужны графики + календарь + чат с AI, получается "HTMX + очень много ванильного JS", что хуже, чем легковесный фреймворк.
+
+#### React (Vite) (допустимо, но избыточно)
+
+- Огромная экосистема, любая задача решена.
+- Telegram Login Widget имеет готовый пакет `@telegram-auth/react`.
+- Но: boilerplate, useEffect/useState сложнее для новичка, JSX менее интуитивен, больше кода для аналогичных задач.
+- Для семейного проекта одного разработчика -- overshoot.
+
+#### Svelte/SvelteKit (хороший кандидат, но...)
+
+- Самый маленький бандл, самый "чистый" код, отлично для дашбордов.
+- Но: экосистема заметно меньше (особенно готовых компонентов -- календарей, чат-виджетов). Для графиков есть обертки, но их меньше и они менее зрелые.
+- SvelteKit добавляет свой Node-сервер -- усложняет деплой (два процесса или adapter-static).
+- Был бы отличным выбором для нового проекта с простым UI, но для дашборда с календарем + чатом + графиками экосистема Vue 3 выигрывает.
+
+#### Vue 3 (Vite) -- рекомендация
+
+- **Простота**: Single-file components (`.vue` файлы) -- HTML, CSS, JS в одном файле. Самый понятный "ментальный модель" для разработчика.
+- **Экосистема для задач проекта**:
+  - Графики: `vue-echarts` (обертка Apache ECharts -- имеет встроенные календари, data zoom, SVG) или `vue3-apexcharts` (легче, отличные line/area charts для веса).
+  - Календарь: `PrimeVue` (80+ компонентов, включая полноценный Calendar), или `vue-cal`, или `FullCalendar Vue 3 wrapper`.
+  - Чат: легко реализуется через Composition API + WebSocket -- Vue 3 reactivity идеально подходит для потокового чата.
+- **Бандл**: Vue 3 core ~33KB min+gz -- это немного. С tree-shaking неиспользуемое не попадает в бандл.
+- **Деплой**: `vite build` генерирует статические файлы (`dist/`), которые FastAPI раздает через `StaticFiles`. Один Docker-контейнер, один процесс (uvicorn).
+- **Telegram Login Widget**: работает как простой `<script>` тег в index.html + callback на FastAPI эндпоинт. Нет необходимости в специальной библиотеке -- это 15 строк кода.
+- **Кривая обучения**: Vue 3 с Composition API объективно проще React (нет JSX, нет rules of hooks, нет useEffect footguns).
+
+---
+
+### 2. CSS: Tailwind CSS + DaisyUI
+
+**Tailwind CSS** -- утилитарный подход, идеально для одного разработчика:
+- Не нужно придумывать имена классов и архитектуру CSS.
+- PurgeCSS убирает неиспользуемые стили -- финальный CSS 5-15 КБ.
+- Идеально интегрируется с Vite (плагин `@tailwindcss/vite`).
+
+**DaisyUI** поверх Tailwind:
+- Дает семантические компоненты (`btn`, `card`, `modal`, `badge`, `timeline`, `chat`) без JavaScript.
+- Встроенные темы (включая темную тему -- одна строка конфига).
+- Не увеличивает бандл (это чисто CSS-классы поверх Tailwind).
+- Компонент `chat` из DaisyUI -- идеальная база для чат-интерфейса.
+- Компонент `timeline` -- подходит для медицинской истории.
+
+---
+
+### 3. Telegram Login Widget -- как это работает
+
+Telegram Login Widget не требует библиотеки -- это стандартный механизм:
+
+1. В HTML вставляется `<script>` от Telegram с указанием bot username и callback URL.
+2. Пользователь нажимает кнопку, авторизуется через Telegram.
+3. Telegram редиректит на callback URL с параметрами `id`, `first_name`, `username`, `hash`.
+4. FastAPI-эндпоинт верифицирует `hash` через HMAC-SHA-256 с токеном бота.
+5. Возвращает JWT/session cookie.
+
+Существует готовый шаблон `dabarov/fastapi-telegram` и `pavel-glukhov/FastAPI-Telegram-Auth` на GitHub -- оба демонстрируют именно FastAPI + Telegram Login Widget.
+
+Для Vue 3 виджет встраивается как простой компонент с `onMounted` хуком.
+
+---
+
+### 4. Архитектура деплоя (один Docker-контейнер)
+
+```
+Dockerfile (multi-stage):
+  Stage 1: node:slim -> npm install -> vite build -> /app/dist/
+  Stage 2: python:3.11-slim -> pip install -> копируем /app/dist/ из Stage 1
+  
+FastAPI:
+  app.mount("/", StaticFiles(directory="frontend/dist", html=True))
+  # API-эндпоинты на /api/...
+  # WebSocket для чата на /ws/chat
+```
+
+Один контейнер, один процесс (uvicorn), ~150-200 МБ образ. Прекрасно работает на VDS с 2 CPU / 4 ГБ RAM.
+
+---
+
+### 5. Конкретные библиотеки для задач проекта
+
+| Задача | Библиотека | Размер | Почему |
+|--------|-----------|--------|--------|
+| Графики веса | `vue3-apexcharts` | ~130 КБ gz | Красивые line/area charts, анимации, zoom, responsive |
+| Календарь | `@fullcalendar/vue3` | ~40 КБ gz | Лучший open-source календарь, события, drag-and-drop |
+| Таймлайн | DaisyUI `timeline` + кастом | 0 КБ | Чистый CSS, достаточно для медицинского таймлайна |
+| Чат | Кастомный Vue-компонент + DaisyUI `chat` | 0 КБ | WebSocket + SSE для стриминга AI-ответов |
+| Формы | `VeeValidate` или нативный Vue | ~12 КБ gz | Валидация профилей питомцев |
+| HTTP-клиент | `ofetch` или нативный `fetch` | 0-3 КБ | Для API-запросов к FastAPI |
+
+---
+
+### 6. Итоговая рекомендация
+
+**Vue 3 (Vite) + Tailwind CSS + DaisyUI** -- оптимальный баланс для этого проекта по всем критериям:
+
+- **Простота**: самый понятный фреймворк для одного разработчика, особенно с Python-бэкграундом.
+- **Графики и календарь**: зрелая экосистема, все задачи закрыты проверенными библиотеками.
+- **Бандл**: ~200-300 КБ итого (Vue + ApexCharts + FullCalendar + Tailwind) -- загружается за 1-2 секунды даже на медленном соединении.
+- **Деплой**: один Docker-контейнер, FastAPI раздает статику -- ничего не усложняет текущую архитектуру.
+- **Чат**: Vue reactivity + WebSocket/SSE = естественный способ реализации стриминга AI-ответов.
+- **Telegram Login Widget**: нативная интеграция через `<script>` + callback, без зависимостей.
+
+HTMX стоит рассматривать только если бы дашборд был чисто табличным CRUD без графиков и чата. Svelte -- достойная альтернатива, но меньшая экосистема готовых компонентов создаст дополнительную работу. React -- избыточен для проекта такого масштаба.</result>
+<usage><total_tokens>41294</total_tokens><tool_uses>18</tool_uses><duration_ms>146545</duration_ms></usage>
+</task-notification>
+Full transcript available at: REDACTED.output
+
+---
+
+<task-notification>
+<task-id>a7ead197048e54cf4</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<status>completed</status>
+<summary>Agent "Research aiogram + FastAPI co-hosting" completed</summary>
+<result>I now have all the information needed. Let me compile a comprehensive summary.
+
+---
+
+## Совместный запуск aiogram 3.x и FastAPI в одном Python-приложении: лучшие практики (2024-2025)
+
+### 1. Как запустить aiogram Dispatcher и FastAPI в одном процессе (общий event loop)
+
+Существуют два подхода, и они напрямую зависят от выбранного режима работы бота (webhook или polling).
+
+**Подход A: Webhook (рекомендуемый)**
+
+FastAPI и aiogram разделяют один и тот же ASGI-сервер (uvicorn). Telegram отправляет обновления на ваш HTTP-эндпоинт, а FastAPI передает их в `dp.feed_update()`. Общий event loop обеспечивается самим uvicorn.
+
+```python
+from contextlib import asynccontextmanager
+from aiogram import Bot, Dispatcher
+from aiogram.types import Update
+from fastapi import FastAPI, Request
+
+bot = Bot(token="TOKEN")
+dp = Dispatcher()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: устанавливаем webhook
+    await bot.set_webhook(
+        url="https://example.com/webhook",
+        allowed_updates=dp.resolve_used_update_types(),
+        drop_pending_updates=True,
+    )
+    yield
+    # Shutdown: удаляем webhook и закрываем сессию
+    await bot.delete_webhook()
+    await bot.session.close()
+
+app = FastAPI(lifespan=lifespan)
+
+@app.post("/webhook")
+async def webhook(request: Request) -> None:
+    update = Update.model_validate(await request.json(), context={"bot": bot})
+    await dp.feed_update(bot, update)
+```
+
+Запуск: `uvicorn main:app --host 0.0.0.0 --port 8000`
+
+**Подход B: Long-polling (через background task)**
+
+Если нет HTTPS/домена (например, при локальной разработке), можно запустить polling как фоновую задачу внутри FastAPI lifespan:
+
+```python
+import asyncio
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from aiogram import Bot, Dispatcher
+
+bot = Bot(token="TOKEN")
+dp = Dispatcher()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    polling_task = asyncio.create_task(dp.start_polling(bot))
+    yield
+    polling_task.cancel()
+    await bot.session.close()
+
+app = FastAPI(lifespan=lifespan)
+```
+
+Это работает, но является скорее хаком для разработки, а не продакшн-решением.
+
+---
+
+### 2. Webhook vs Long-polling: сравнение
+
+| Критерий | Webhook | Long-polling |
+|---|---|---|
+| **Производительность** | Telegram пушит обновления мгновенно; нет холостых запросов | Постоянно опрашивает API Telegram; задержка = `timeout` параметр |
+| **Требования к инфраструктуре** | Нужен HTTPS (домен + SSL/TLS сертификат), доступность из интернета | Работает за NAT, без домена, без SSL |
+| **Совместимость с FastAPI** | Идеальная: один ASGI-сервер, один порт, один процесс | Требуется запуск polling как background task в том же event loop |
+| **Масштабируемость** | Легко масштабировать за reverse proxy (nginx) | Только один процесс может опрашивать одного бота |
+| **Для продакшна** | Рекомендуется | Не рекомендуется (подходит для разработки) |
+| **Одновременное использование** | Нет: если установлен webhook, polling не работает (ограничение Telegram API) | Нет: если запущен polling, webhook нужно удалить |
+
+**Вывод**: для проекта с FastAPI + веб-дашбордом на VDS с nginx — однозначно **webhook**. У вас уже будет HTTPS, домен и nginx. Polling -- только для локальной разработки.
+
+---
+
+### 3. Как разделять зависимости (БД-сессии, сервисы) между aiogram и FastAPI
+
+Ключевая проблема: FastAPI использует `Depends()` для DI, а aiogram -- middleware и `workflow_data` (keyword arguments в хендлерах). Нужен единый источник, к которому обращаются обе стороны.
+
+**Подход: общий async session factory**
+
+Создайте единый `async_session_maker` на уровне модуля:
+
+```python
+# app/db/session.py
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+
+engine = create_async_engine("postgresql+asyncpg://user:pass@localhost/db")
+async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+```
+
+**Для FastAPI** -- через `Depends()`:
+
+```python
+# app/api/deps.py
+from app.db.session import async_session_maker
+
+async def get_db():
+    async with async_session_maker() as session:
+        yield session
+```
+
+**Для aiogram** -- через middleware:
+
+```python
+# app/bot/middlewares/db.py
+from aiogram import BaseMiddleware
+from typing import Any, Awaitable, Callable
+from aiogram.types import TelegramObject
+from app.db.session import async_session_maker
+
+class DbSessionMiddleware(BaseMiddleware):
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: dict[str, Any],
+    ) -> Any:
+        async with async_session_maker() as session:
+            data["session"] = session
+            return await handler(event, data)
+```
+
+Регистрация middleware:
+
+```python
+dp.update.outer_middleware(DbSessionMiddleware())
+```
+
+Использование в хендлере бота:
+
+```python
+@router.message(CommandStart())
+async def start(message: Message, session: AsyncSession) -> None:
+    # session доступен через DI aiogram
+    ...
+```
+
+**Сервисы** также создаются как обычные классы, которые принимают `AsyncSession` в конструкторе. И FastAPI, и aiogram передают одну и ту же фабрику сессий.
+
+Можно также передавать зависимости через `Dispatcher` workflow_data:
+
+```python
+dp = Dispatcher()
+dp["config"] = app_config          # доступен во всех хендлерах как kwarg
+dp["some_service"] = my_service    # аналогично
+```
+
+---
+
+### 4. Рекомендуемая структура проекта
+
+```
+project/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                # FastAPI app + lifespan + webhook endpoint
+│   ├── config.py              # Pydantic Settings (общие настройки)
+│   ├── db/
+│   │   ├── __init__.py
+│   │   ├── session.py         # engine, async_session_maker
+│   │   └── models.py          # SQLAlchemy models (общие для бота и API)
+│   ├── services/
+│   │   ├── __init__.py
+│   │   └── pet_service.py     # Бизнес-логика (общая)
+│   ├── api/                   # FastAPI endpoints (веб-дашборд)
+│   │   ├── __init__.py
+│   │   ├── deps.py            # Depends() для FastAPI
+│   │   └── routers/
+│   │       ├── __init__.py
+│   │       ├── dashboard.py
+│   │       └── pets.py
+│   └── bot/                   # aiogram (Telegram-бот)
+│       ├── __init__.py
+│       ├── create.py          # bot = Bot(...), dp = Dispatcher()
+│       ├── middlewares/
+│       │   ├── __init__.py
+│       │   └── db.py          # DbSessionMiddleware
+│       ├── handlers/
+│       │   ├── __init__.py
+│       │   ├── start.py
+│       │   └── pet_care.py
+│       └── keyboards/
+│           └── __init__.py
+├── docker-compose.yml
+├── Dockerfile
+└── pyproject.toml
+```
+
+Ключевые принципы:
+- `db/` и `services/` -- общие для бота и API. Бизнес-логика не дублируется.
+- `bot/` и `api/` -- слой представления, каждый со своими "адаптерами" к общим сервисам.
+- `main.py` собирает все вместе: создает `FastAPI(lifespan=lifespan)`, подключает API-роутеры, подключает webhook endpoint.
+
+**Пример `main.py`:**
+
+```python
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from aiogram.types import Update
+
+from app.bot.create import bot, dp
+from app.bot.handlers import start, pet_care
+from app.api.routers import dashboard, pets
+
+WEBHOOK_URL = "https://example.com/webhook"
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Регистрируем роутеры бота
+    dp.include_router(start.router)
+    dp.include_router(pet_care.router)
+    
+    # Устанавливаем webhook
+    await bot.set_webhook(
+        url=WEBHOOK_URL,
+        allowed_updates=dp.resolve_used_update_types(),
+        drop_pending_updates=True,
+    )
+    yield
+    await bot.delete_webhook()
+    await bot.session.close()
+
+app = FastAPI(lifespan=lifespan)
+
+# API-роутеры для веб-дашборда
+app.include_router(dashboard.router, prefix="/api")
+app.include_router(pets.router, prefix="/api")
+
+# Webhook endpoint для Telegram
+@app.post("/webhook")
+async def webhook(request: Request) -> None:
+    update = Update.model_validate(await request.json(), context={"bot": bot})
+    await dp.feed_update(bot, update)
+```
+
+---
+
+### 5. Подводные камни и известные проблемы
+
+**5.1. Не используйте `on_event("startup")`/`on_event("shutdown")`**
+Эти декораторы **deprecated** в FastAPI. Используйте `lifespan` context manager -- это актуальный подход с FastAPI 0.93+.
+
+**5.2. `dp.feed_update()` vs `SimpleRequestHandler` aiogram**
+- Встроенный `SimpleRequestHandler` aiogram рассчитан на **aiohttp**, а не FastAPI/Starlette. Он не совместим с FastAPI напрямую.
+- Для FastAPI нужно вручную парсить JSON и вызывать `dp.feed_update(bot, update)`.
+- Существует пакет `aiogram-fastapi-server` на PyPI, который оборачивает это, но он малопопулярен и добавляет лишнюю зависимость. Ручной подход из 3 строк (см. выше) проще и надежнее.
+
+**5.3. Валидация `secret_token`**
+Telegram поддерживает `secret_token` для верификации webhook-запросов (защита от поддельных обновлений). При ручном подходе с FastAPI нужно проверять его самостоятельно:
+
+```python
+from fastapi import Header, HTTPException
+
+WEBHOOK_SECRET = "my-secret-token"
+
+@app.post("/webhook")
+async def webhook(
+    request: Request,
+    x_telegram_bot_api_secret_token: str = Header(None),
+) -> None:
+    if x_telegram_bot_api_secret_token != WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    update = Update.model_validate(await request.json(), context={"bot": bot})
+    await dp.feed_update(bot, update)
+```
+
+При установке webhook передайте его: `await bot.set_webhook(url=..., secret_token=WEBHOOK_SECRET)`.
+
+**5.4. Блокирующие операции в async-хендлерах**
+И FastAPI, и aiogram работают в одном event loop. Если хендлер бота выполняет синхронную блокирующую операцию (CPU-bound, sync I/O), это заблокирует и веб-API. Используйте `asyncio.to_thread()` или `run_in_executor()` для таких задач.
+
+**5.5. Graceful shutdown и `bot.session.close()`**
+Обязательно закрывайте сессию бота при завершении. В `lifespan` это делается в блоке после `yield`. Без этого aiohttp (внутри aiogram) может выдавать `Unclosed client session` warnings.
+
+**5.6. `allowed_updates` и `resolve_used_update_types()`**
+Метод `dp.resolve_used_update_types()` автоматически определяет, какие типы апдейтов используются вашими хендлерами. Вызывайте его **после** регистрации всех роутеров (`dp.include_router()`), иначе получите неполный список, и часть обновлений не будет приходить от Telegram.
+
+**5.7. Один бот = один webhook URL**
+Telegram позволяет только один webhook на бота. Если вы перезапустите приложение с новым URL, старый автоматически заменится. При использовании нескольких реплик (горизонтальное масштабирование) все реплики должны слушать один и тот же URL за балансировщиком.
+
+**5.8. `drop_pending_updates=True` при разработке**
+Во время разработки рекомендуется ставить `drop_pending_updates=True` в `set_webhook()`, чтобы не обрабатывать накопившиеся обновления. В продакшне решайте по ситуации.
+
+---
+
+### Источники
+
+- Официальная документация aiogram 3.x: https://docs.aiogram.dev/en/latest/dispatcher/webhook.html
+- Статья на Habr: https://habr.com/ru/articles/819955/
+- Stack Overflow: https://stackoverflow.com/questions/73055856/
+- FastAPI lifespan events: https://fastapi.tiangolo.com/advanced/events/
+- Шаблон aiogram+FastAPI webhook: https://github.com/QuvonchbekBobojonov/aiogram-webhook-template
+- aiogram dependency injection docs: https://docs.aiogram.dev (раздел Dependency Injection)
+- aiogram + SQLAlchemy demo (MasterGroosha): https://github.com/MasterGroosha/aiogram-and-sqlalchemy-demo</result>
+<usage><total_tokens>55152</total_tokens><tool_uses>26</tool_uses><duration_ms>198931</duration_ms></usage>
+</task-notification>
+Full transcript available at: REDACTED.output
+
+---
+
+<task-notification>
+<task-id>acbd7b900aea79e8a</task-id>
+<tool-use-id>toolu_01Y6RWkhFEM5kEk6d5BXE2Yf</tool-use-id>
+<status>completed</status>
+<summary>Agent "Research Python CI/CD and linting" completed</summary>
+<result>Now I have comprehensive information on all topics. Let me compile the response.
+
+---
+
+## Результаты исследования: CI/CD, линтинг и тестирование для Python 3.11+ / FastAPI
+
+### 1. Линтинг и форматирование: Ruff -- однозначный выбор
+
+**Ruff vs flake8+isort+black**: В 2024-2025 году Ruff стал де-факто стандартом. Он заменяет flake8, isort, black, pyupgrade, autoflake и десятки плагинов, работая в 10-100x быстрее. FastAPI, Pydantic, pandas, Apache Airflow уже перешли на Ruff. Единственное, что Ruff НЕ заменяет -- mypy (проверка типов). Рекомендуемый стек: **Ruff + mypy**.
+
+#### Рекомендуемый `pyproject.toml`
+
+```toml
+[project]
+name = "luna-the-dog"
+requires-python = ">=3.11"
+
+# ── Ruff ──────────────────────────────────────────────
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "UP",   # pyupgrade (автообновление синтаксиса до 3.11+)
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "I",    # isort
+    "N",    # pep8-naming
+    "S",    # flake8-bandit (безопасность)
+    "T20",  # flake8-print (запрет print в продакшене)
+    "PT",   # flake8-pytest-style
+    "SIM",  # flake8-simplify
+    "ASYNC",# flake8-async (важно для aiogram/FastAPI)
+    "RUF",  # ruff-специфичные правила
+]
+ignore = ["E501"]  # длину строк контролирует форматтер
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]        # assert разрешён в тестах
+"__init__.py" = ["F401"]    # неиспользуемые импорты в __init__
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Form",
+    "fastapi.File",
+]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    "sqlalchemy.orm.DeclarativeBase",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ── mypy ──────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.11"
+plugins = ["pydantic.mypy"]
+strict = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_reexport = true
+
+[[tool.mypy.overrides]]
+module = ["aiogram.*", "testcontainers.*"]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# ── pytest ────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = [
+    "--strict-markers",
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-config=pyproject.toml",
+]
+
+# ── coverage ──────────────────────────────────────────
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/migrations/*", "*/tests/*"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__",
+]
+```
+
+---
+
+### 2. Pre-commit hooks
+
+Файл `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6  # закрепить актуальную версию
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic
+          - types-requests
+```
+
+Порядок важен: сначала `ruff-check --fix` (линтер с автоисправлениями), затем `ruff-format` (форматтер).
+
+---
+
+### 3. Тестирование
+
+**Стек**: `pytest` + `pytest-asyncio` + `pytest-cov` + `httpx` (AsyncClient)
+
+**testcontainers vs фикстуры в CI**:
+- **testcontainers-python** -- поднимает настоящий PostgreSQL в Docker-контейнере прямо из фикстуры. Идеален для локальной разработки, но в CI требует Docker-in-Docker (доступен в GitHub Actions на ubuntu runners).
+- **PostgreSQL service container** в GitHub Actions -- проще и надёжнее для CI: GitHub сам поднимает контейнер до запуска тестов.
+
+**Рекомендация**: использовать оба подхода. Testcontainers для локальной разработки, service container для CI.
+
+Пример фикстуры для тестов с httpx AsyncClient:
+
+```python
+import pytest
+from httpx import ASGITransport, AsyncClient
+from app.main import app
+
+@pytest.fixture
+async def client():
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        yield ac
+```
+
+---
+
+### 4. GitHub Actions -- рекомендуемый workflow
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ── Линтинг и проверка типов ──────────────────────
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format check
+        run: ruff format --check .
+      - name: mypy
+        run: mypy app/
+
+  # ── Тесты с PostgreSQL ────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: luna
+          POSTGRES_PASSWORD: luna_test
+          POSTGRES_DB: luna_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://luna:luna_test@localhost:5432/luna_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Run tests
+        run: pytest --cov-report=xml
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+        if: always()
+
+  # ── Сборка Docker-образа ──────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Деплой на VDS через SSH ───────────────────────
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/luna-the-dog
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker image prune -f
+```
+
+#### Ключевые моменты workflow:
+
+| Аспект | Решение |
+|---|---|
+| **Кэширование pip** | Встроенный `cache: pip` в `actions/setup-python@v5` -- кэширует wheel-файлы по хэшу requirements |
+| **PostgreSQL в CI** | Service container с health check -- GitHub сам управляет жизненным циклом |
+| **Сборка Docker** | `docker/build-push-action` с GHA-кэшем слоёв (`cache-from/to: type=gha`) |
+| **Деплой на VDS** | `appleboy/ssh-action` -- SSH на сервер, `docker compose pull && up -d` |
+| **Секреты** | SSH_HOST, SSH_USER, SSH_PRIVATE_KEY -- в GitHub Secrets. Отдельный SSH-ключ для CI |
+| **Environment protection** | `environment: production` -- можно добавить ручное подтверждение деплоя |
+
+---
+
+### 5. Итоговые рекомендации
+
+1. **Ruff** заменяет black + isort + flake8 + pyupgrade. Один инструмент, одна конфигурация, миллисекунды вместо секунд.
+2. **mypy + pydantic.mypy plugin** для проверки типов -- Ruff не заменяет type checker.
+3. **Pre-commit**: ruff-check (--fix) -> ruff-format -> mypy.
+4. **pytest + pytest-asyncio (asyncio_mode="auto")** -- async-тесты без ручной декорации каждого теста.
+5. **httpx.AsyncClient** вместо TestClient для async-тестов FastAPI.
+6. **GitHub Actions**: lint -> test (с PostgreSQL service) -> build Docker -> deploy по SSH.
+7. **Кэширование**: `setup-python cache: pip` + Docker layer cache через GHA.
+8. **Coverage**: fail_under=80 как начальная планка, наращивать постепенно.
+
+---
+
+Sources:
+- [Ruff Settings](https://docs.astral.sh/ruff/settings/)
+- [Configuring Ruff](https://docs.astral.sh/ruff/configuration/)
+- [Modern Python Code Quality: uv, ruff, mypy](https://simone-carolini.medium.com/modern-python-code-quality-setup-uv-ruff-and-mypy-8038c6549dcc)
+- [Ruff pre-commit hooks](https://github.com/astral-sh/ruff-pre-commit)
+- [Pydantic mypy plugin](https://docs.pydantic.dev/latest/integrations/mypy/)
+- [FastAPI async tests](https://fastapi.tiangolo.com/advanced/async-tests/)
+- [Testcontainers with FastAPI and asyncpg](https://lealre.github.io/fastapi-testcontainer-asyncpg/)
+- [actions/setup-python caching](https://github.com/actions/setup-python)
+- [Full Stack FastAPI Template](https://github.com/fastapi/full-stack-fastapi-template)
+- [Docker Compose SSH Deployment](https://github.com/marketplace/actions/docker-compose-ssh-deployment)
+- [appleboy/ssh-action](https://github.com/appleboy/ssh-action)
+- [pytest-cov configuration](https://pytest-cov.readthedocs.io/en/latest/config.html)
+- [Coverage.py configuration](https://coverage.readthedocs.io/en/latest/config.html)
+- [Why replace flake8, black, isort with Ruff](https://medium.com/@zigtecx/why-you-should-replace-flake8-black-and-isort-with-ruff-the-ultimate-python-code-quality-tool-a9372d1ddc1e)
+- [Ruff FAQ](https://docs.astral.sh/ruff/faq/)
+- [Docker CI/CD in VPS via SSH](https://medium.com/@odenigbo67/docker-ci-cd-in-vpc-vps-environments-automating-deployment-with-github-actions-via-ssh-or-web-e2192bb75a69)</result>
+<usage><total_tokens>16888</total_tokens><tool_uses>11</tool_uses><duration_ms>193898</duration_ms></usage>
+</task-notification>
+Full transcript available at: /private/tmp/claude-501/-Users-user-github-luna-the-dog/tasks/acbd7b900aea79e8a.output
+
+---
+
+<task-notification>
+<task-id>a1e95a324a1e5e08a</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<status>completed</status>
+<summary>Agent "Research OpenAI agent patterns" completed</summary>
+<result>Теперь у меня есть полная картина: спецификация проекта, конституция и результаты исследования. Подготовлю подробный ответ.
+
+---
+
+# Рекомендации по архитектуре AI-агента для Luna the Dog
+
+## 1. OpenAI Function Calling / Tool Use
+
+### 1.1. Какой API использовать: Responses API (не Chat Completions)
+
+OpenAI в 2025 году сделал ключевой сдвиг к **Responses API** как основной платформе для агентных приложений. Основные преимущества для Luna:
+
+- **Встроенное управление состоянием**: API сам хранит историю через `previous_response_id`, не нужно вручную накапливать массив `messages`.
+- **Нативная поддержка tool calling**: `function_call` и `function_call_output` -- это отдельные типы элементов (Items), связанные через `call_id`.
+- **Strict mode по умолчанию**: параметр `strict: true` в определениях функций гарантирует, что аргументы всегда валидны по JSON-схеме.
+
+Рекомендуемый паттерн вызова:
+
+```python
+response = client.responses.create(
+    model="gpt-4o-mini",
+    instructions=system_prompt,
+    tools=tools,
+    input=user_message,
+    previous_response_id=prev_id,  # автоматический контекст
+)
+```
+
+### 1.2. Определение инструментов для CRUD-операций
+
+Для CRUD-операций по спецификации Luna рекомендуется группировка инструментов **по доменному действию**, а не по CRUD-методу. Модель лучше выбирает инструмент, когда его имя и описание отражают бизнес-намерение:
+
+```python
+tools = [
+    {
+        "type": "function",
+        "name": "save_pet_weight",
+        "description": "Сохранить новую запись о весе питомца. Вызывай, когда пользователь сообщает текущий вес.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "pet_id": {"type": "integer", "description": "ID питомца"},
+                "weight_kg": {"type": "number", "description": "Вес в килограммах"},
+                "measured_at": {"type": "string", "description": "Дата в формате YYYY-MM-DD, по умолчанию сегодня"}
+            },
+            "required": ["pet_id", "weight_kg"],
+            "additionalProperties": False
+        },
+        "strict": True
+    },
+    {
+        "type": "function",
+        "name": "save_vaccination",
+        "description": "Записать вакцинацию питомца. Вызывай, когда пользователь сообщает о прививке.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "pet_id": {"type": "integer"},
+                "vaccine_name": {"type": "string"},
+                "date": {"type": "string"},
+                "vet_name": {"type": "string", "description": "Имя ветеринара или клиники"}
+            },
+            "required": ["pet_id", "vaccine_name", "date"],
+            "additionalProperties": False
+        },
+        "strict": True
+    },
+    {
+        "type": "function",
+        "name": "update_diet",
+        "description": "Обновить текущий корм питомца. Закрывает предыдущую запись и создаёт новую.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "pet_id": {"type": "integer"},
+                "food_brand": {"type": "string"},
+                "start_date": {"type": "string"}
+            },
+            "required": ["pet_id", "food_brand", "start_date"],
+            "additionalProperties": False
+        },
+        "strict": True
+    },
+    {
+        "type": "function",
+        "name": "get_pet_profile",
+        "description": "Получить полный профиль питомца: данные, вес, вакцинации, лекарства, диету.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "pet_id": {"type": "integer"}
+            },
+            "required": ["pet_id"],
+            "additionalProperties": False
+        },
+        "strict": True
+    },
+    {
+        "type": "function",
+        "name": "list_pets",
+        "description": "Получить список всех питомцев семьи с ID и именами.",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False
+        },
+        "strict": True
+    },
+    {
+        "type": "function",
+        "name": "ask_clarification",
+        "description": "Запросить уточнение у пользователя (о каком питомце речь, какая дата и т.д.)",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "question": {"type": "string"}
+            },
+            "required": ["question"],
+            "additionalProperties": False
+        },
+        "strict": True
+    }
+]
+```
+
+**Ключевые практики:**
+- **`strict: True`** обязателен -- модель гарантированно вернёт валидный JSON по схеме.
+- **`additionalProperties: False`** -- обязателен при `strict: True`.
+- Все поля должны быть в `required` при strict mode. Для опциональных полей используй union с null: `{"type": ["string", "null"]}` (но это ограничение OpenAI strict mode -- лучше делать все поля required и позволять модели передавать пустую строку или null).
+- Описания инструментов -- на русском, т.к. семья общается на русском, и модель лучше выбирает инструмент, когда описание на языке диалога.
+
+### 1.3. Structured Outputs vs Function Calling
+
+Для Luna рекомендуется **именно Function Calling**, а не `response_format` с JSON Schema. Причины:
+
+- Function calling позволяет модели **решать**, какой инструмент вызвать (или не вызывать вообще, а ответить текстом).
+- `response_format` (structured outputs) нужен, когда вы хотите **всегда** получить JSON определённой структуры. Это полезно для парсинга паспорта по фото (see раздел Vision), но не для основного агентного цикла.
+- Можно комбинировать: агент работает через function calling, а для конкретных подзадач (извлечение данных из фото) используется отдельный вызов с `response_format`.
+
+### 1.4. Оптимизация токенов: контекст базы знаний
+
+Это ключевой вопрос для Luna, т.к. база знаний питомца растёт со временем. Рекомендации:
+
+**Стратегия "ленивой загрузки контекста":**
+
+1. **System prompt содержит только структурную информацию**: список питомцев с ID и именами, текущие активные лекарства, ближайшие напоминания. Это 200-500 токенов.
+
+2. **Подробные данные загружаются через инструменты**: когда модель нужна история вакцинаций -- она вызывает `get_vaccination_history(pet_id)`. Это экономит токены, т.к. не все данные нужны в каждом диалоге.
+
+3. **Суммаризация длинных историй**: для AI-отчёта о здоровье (история 8) -- подготавливать суммаризированный контекст перед вызовом, а не передавать все сырые записи.
+
+```python
+# Паттерн сборки контекста
+def build_system_prompt(family_id: int) -> str:
+    pets = db.get_pets(family_id)
+    pet_summary = "\n".join(
+        f"- {p.name} (ID:{p.id}, {p.species}, {p.breed})"
+        for p in pets
+    )
+    active_meds = db.get_active_medications(family_id)
+    med_summary = "\n".join(
+        f"- {m.pet_name}: {m.name} {m.dosage}, каждые {m.frequency}"
+        for m in active_meds
+    )
+    return f"""Ты — ассистент по уходу за питомцами семьи.
+
+Питомцы:
+{pet_summary}
+
+Активные лекарства:
+{med_summary or 'Нет'}
+
+Правила:
+1. Если пользователь упоминает имя питомца — используй его.
+2. Если питомец один — используй его по умолчанию.
+3. Если неоднозначно — вызови ask_clarification.
+4. Даты по умолчанию — сегодня, если не указано иное.
+5. «Вчера» = вчерашняя дата, «на прошлой неделе» = 7 дней назад.
+6. Всегда подтверждай сохранённые данные пользователю.
+7. Для медицинских вопросов — рекомендуй консультацию ветеринара.
+"""
+```
+
+**Бюджет токенов (gpt-4o-mini, 128K контекст):**
+- System prompt: ~300-500 токенов
+- Определения инструментов (~10 инструментов): ~1500-2000 токенов
+- История диалога (последние 8 ходов): ~2000-4000 токенов
+- Результаты вызовов инструментов: ~500-2000 токенов
+- **Итого: 4000-8500 токенов на запрос** -- абсолютно в рамках бюджета
+
+**Выбор модели для разных задач:**
+- **gpt-4o-mini** -- основной агент (дешёвый, быстрый, достаточно умный для CRUD через function calling)
+- **gpt-4o** -- обработка фото, паспортов, сложных медицинских документов
+- **gpt-4o-mini** -- суммаризация для управления контекстом
+
+---
+
+## 2. OpenAI Whisper API / Speech-to-Text
+
+### 2.1. Актуальные модели транскрипции (2025)
+
+OpenAI предлагает несколько моделей:
+
+| Модель | Цена/мин | Назначение |
+|--------|----------|------------|
+| `whisper-1` | $0.006 | Legacy, надёжная, поддерживает srt/vtt |
+| `gpt-4o-transcribe` | $0.006 | Новая, повышенная точность |
+| `gpt-4o-mini-transcribe` | $0.003 | Экономичная, хорошая точность |
+
+**Рекомендация для Luna: `gpt-4o-mini-transcribe`** -- $0.003/мин, хорошая точность, вдвое дешевле whisper-1. Голосовые сообщения в Telegram обычно 5-30 секунд, стоимость -- доли цента.
+
+### 2.2. Пайплайн обработки голосовых сообщений (aiogram 3)
+
+```python
+import io
+import tempfile
+from aiogram import Router, F
+from aiogram.types import Message
+from pydub import AudioSegment
+from openai import AsyncOpenAI
+
+router = Router()
+openai_client = AsyncOpenAI()
+
+@router.message(F.voice)
+async def handle_voice(message: Message):
+    # 1. Скачать файл из Telegram
+    file = await message.bot.get_file(message.voice.file_id)
+    
+    # 2. Скачать в память (не на диск — экономия I/O)
+    file_bytes = io.BytesIO()
+    await message.bot.download_file(file.file_path, destination=file_bytes)
+    file_bytes.seek(0)
+    
+    # 3. Конвертация OGG/Opus -> MP3 через pydub (требует ffmpeg)
+    audio = AudioSegment.from_ogg(file_bytes)
+    mp3_buffer = io.BytesIO()
+    audio.export(mp3_buffer, format="mp3", bitrate="64k")
+    mp3_buffer.seek(0)
+    mp3_buffer.name = "voice.mp3"  # OpenAI требует имя файла с расширением
+    
+    # 4. Транскрипция
+    transcript = await openai_client.audio.transcriptions.create(
+        model="gpt-4o-mini-transcribe",
+        file=mp3_buffer,
+        language="ru",  # принудительно русский — повышает точность
+    )
+    
+    # 5. Передать текст в агент
+    await process_agent_message(message, transcript.text)
+```
+
+### 2.3. Формат аудио и оптимизация
+
+- **Telegram отправляет**: OGG/Opus (`.oga`), обычно 16-48 kHz.
+- **Whisper API принимает**: mp3, mp4, mpeg, mpga, m4a, wav, webm. **Не принимает** OGG напрямую.
+- **Обязательно**: установить `ffmpeg` в Docker-образ (`apt-get install ffmpeg`).
+- **Оптимизация**: конвертировать в MP3 с bitrate 64k (голос не требует больше) -- меньше размер, быстрее загрузка.
+- **Лимит**: 25 МБ на файл. Для голосовых сообщений Telegram (до нескольких минут) это не проблема.
+
+### 2.4. Язык: принудительный `language="ru"` vs автодетекция
+
+**Рекомендация: всегда передавать `language="ru"`.**
+
+- Семья общается на русском -- это известно заранее.
+- Автодетекция может ошибиться на коротких сообщениях (5-10 секунд).
+- Принудительный язык повышает точность транскрипции на ~5-10%.
+- Если в будущем нужна поддержка других языков -- можно добавить настройку в профиль пользователя.
+
+---
+
+## 3. Vision API для обработки фотографий
+
+### 3.1. Паспорт питомца: извлечение вакцинаций
+
+Это идеальный случай для **Structured Outputs через `response_format`** -- нужен гарантированно валидный JSON:
+
+```python
+from pydantic import BaseModel
+from typing import Optional
+
+class VaccinationRecord(BaseModel):
+    vaccine_name: str
+    date: str  # YYYY-MM-DD
+    vet_name: Optional[str] = None
+    next_date: Optional[str] = None
+
+class PetPassportData(BaseModel):
+    pet_name: Optional[str] = None
+    species: Optional[str] = None
+    breed: Optional[str] = None
+    birth_date: Optional[str] = None
+    vaccinations: list[VaccinationRecord]
+    chip_number: Optional[str] = None
+
+# Вызов Vision API с structured output
+async def extract_passport_data(image_base64: str) -> PetPassportData:
+    response = await openai_client.responses.parse(
+        model="gpt-4o",  # gpt-4o — лучше для зрения, чем mini
+        instructions="""Извлеки данные из фото паспорта питомца.
+Если поле не видно или не читаемо — оставь null.
+Даты переводи в формат YYYY-MM-DD.
+Названия вакцин записывай как есть на фото.""",
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "Извлеки данные из этого паспорта питомца"},
+                    {
+                        "type": "input_image",
+                        "image_url": f"data:image/jpeg;base64,{image_base64}",
+                    }
+                ]
+            }
+        ],
+        text=PetPassportData,
+    )
+    return response.output_parsed
+```
+
+### 3.2. Обычные фото питомца: описание
+
+Для описаний используется обычный текстовый ответ (дешевле):
+
+```python
+async def describe_pet_photo(image_base64: str, pet_name: str) -> str:
+    response = await openai_client.responses.create(
+        model="gpt-4o-mini",  # mini достаточно для описаний
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": f"Опиши это фото питомца {pet_name} коротко (1-2 предложения). "
+                                "Укажи, что питомец делает, где находится, заметные детали."
+                    },
+                    {
+                        "type": "input_image",
+                        "image_url": f"data:image/jpeg;base64,{image_base64}",
+                    }
+                ]
+            }
+        ],
+    )
+    return response.output_text
+```
+
+### 3.3. Стоимость и оптимизация Vision
+
+Расчёт токенов для изображений (gpt-4o):
+- **Base**: 85 токенов
+- **Tile** (170 токенов за каждый тайл 512x512): типичное фото 1024x1024 = 4 тайла = 85 + 4*170 = **765 токенов**
+- gpt-4o-mini значительно дороже по токенам за изображение (2833 base + 5667 per tile), но сами токены дешевле.
+
+**Рекомендации:**
+- Для паспортов и документов: **gpt-4o** (лучшее качество OCR).
+- Для описаний фото: **gpt-4o-mini** (достаточно).
+- Перед отправкой уменьшать фото до 1024px по длинной стороне -- экономия на тайлах без потери качества.
+- Можно передавать `detail: "low"` для обычных фото (фиксированные 85 токенов), `detail: "high"` для документов.
+
+---
+
+## 4. Архитектура агента
+
+### 4.1. Основной агентный цикл
+
+Паттерн «stateful loop» -- модель вызывает инструменты, получает результаты, продолжает до финального ответа:
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+async def run_agent(
+    user_input: str | list,
+    system_prompt: str,
+    tools: list[dict],
+    previous_response_id: str | None = None,
+    max_iterations: int = 10,
+) -> tuple[str, str]:
+    """
+    Запускает агентный цикл.
+    Возвращает (текстовый ответ, response_id для продолжения).
+    """
+    current_input = user_input
+    prev_id = previous_response_id
+    
+    for _ in range(max_iterations):
+        response = await client.responses.create(
+            model="gpt-4o-mini",
+            instructions=system_prompt,
+            tools=tools,
+            input=current_input,
+            previous_response_id=prev_id,
+        )
+        
+        # Проверяем, есть ли вызовы функций
+        tool_calls = [
+            item for item in response.output
+            if item.type == "function_call"
+        ]
+        
+        if not tool_calls:
+            # Нет tool calls — финальный ответ
+            return response.output_text, response.id
+        
+        # Выполняем все вызовы функций
+        tool_results = []
+        for tc in tool_calls:
+            result = await execute_tool(tc.name, tc.arguments)
+            tool_results.append({
+                "type": "function_call_output",
+                "call_id": tc.call_id,
+                "output": json.dumps(result, ensure_ascii=False),
+            })
+        
+        # Передаём результаты обратно — через previous_response_id
+        current_input = tool_results
+        prev_id = response.id
+    
+    return "Извините, не удалось обработать запрос. Попробуйте переформулировать.", prev_id
+```
+
+### 4.2. Управление историей диалога
+
+**Стратегия для Luna** -- гибридная, с использованием Responses API:
+
+1. **Короткосрочная история**: хранится на стороне OpenAI через `previous_response_id`. Каждый ответ связан с предыдущим -- контекст автоматический. Сохраняем `response_id` последнего ответа в Redis/PostgreSQL с ключом `(user_id, chat_id)`.
+
+2. **Обрезка**: после ~8-10 ходов создавать новую цепочку. При этом в system prompt инжектировать краткую сводку ("контекстную память"):
+
+```python
+# Хранение в PostgreSQL
+class ConversationState(Base):
+    __tablename__ = "conversation_states"
+    user_id = Column(BigInteger, primary_key=True)
+    last_response_id = Column(String, nullable=True)
+    turn_count = Column(Integer, default=0)
+    session_summary = Column(Text, nullable=True)  # сводка при обрезке
+
+async def get_or_reset_context(user_id: int) -> str | None:
+    state = await db.get_conversation_state(user_id)
+    if state and state.turn_count < 10:
+        return state.last_response_id
+    # Обрезка: суммаризируем и начинаем новую цепочку
+    if state and state.last_response_id:
+        summary = await summarize_conversation(state.last_response_id)
+        await db.update_session_summary(user_id, summary)
+    return None  # новая цепочка
+```
+
+3. **Долгосрочная память**: это и есть база данных PostgreSQL. Все факты о питомцах сохраняются структурированно через tool calls. Агенту не нужно "помнить" что Луна весит 12 кг -- он вызывает `get_pet_profile` и получает актуальные данные.
+
+### 4.3. System Prompt для ассистента по уходу за питомцами
+
+```python
+SYSTEM_PROMPT_TEMPLATE = """Ты — Луна, AI-ассистент по уходу за питомцами семьи.
+
+## Питомцы семьи
+{pets_list}
+
+## Активные лекарства
+{active_medications}
+
+## Ближайшие напоминания
+{upcoming_reminders}
+
+{session_summary}
+
+## Инструкции
+
+### Определение питомца
+- Если имя питомца упомянуто — используй его
+- Если питомец один — используй по умолчанию без вопросов
+- Если питомцев несколько и имя не указано — вызови ask_clarification
+
+### Обработка данных
+- Извлекай факты из естественной речи: даты, имена, числа
+- «Вчера» = {yesterday}, «сегодня» = {today}, «на прошлой неделе» ≈ {week_ago}
+- При неоднозначных данных — уточняй перед сохранением
+- При изменении существующих данных (корм, вес) — сообщи, что обновляешь
+
+### Стиль общения
+- Отвечай кратко и по-дружески, на том же языке, что и пользователь
+- Подтверждай каждое сохранение конкретно: «Записано: вес Луны — 12 кг»
+- Различай факты из базы данных и свои рекомендации
+- При медицинских вопросах — советуй обратиться к ветеринару
+
+### Ограничения
+- НЕ ставь диагнозы
+- НЕ назначай лекарства
+- НЕ выдумывай данные, которых нет в базе
+"""
+```
+
+### 4.4. Обработка ошибок при недоступности API
+
+```python
+from openai import APIError, APITimeoutError, RateLimitError
+import asyncio
+
+async def safe_agent_call(message: Message, text: str):
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response_text, response_id = await run_agent(text, ...)
+            await message.answer(response_text)
+            return
+        except RateLimitError:
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)  # exponential backoff
+                continue
+            await message.answer(
+                "Сервис временно перегружен. Попробуйте через минуту."
+            )
+        except APITimeoutError:
+            await message.answer(
+                "Не удалось получить ответ от AI. Попробуйте ещё раз."
+            )
+        except APIError as e:
+            logger.error(f"OpenAI API error: {e}")
+            await message.answer(
+                "У меня сейчас возникли проблемы с обработкой. "
+                "Попробуйте через несколько минут."
+            )
+            # Сохранить сообщение в очередь для повторной обработки
+            await queue_failed_message(message, text)
+```
+
+---
+
+## Сводка ключевых решений
+
+| Аспект | Рекомендация |
+|--------|-------------|
+| **API** | Responses API (не Chat Completions) |
+| **Основная модель** | `gpt-4o-mini` для агента и описаний фото |
+| **Модель для Vision** | `gpt-4o` для паспортов и документов |
+| **STT модель** | `gpt-4o-mini-transcribe` ($0.003/мин) |
+| **Function calling** | Strict mode, ~10-15 доменных инструментов |
+| **Structured outputs** | Только для извлечения данных из фото (Pydantic) |
+| **Контекст** | `previous_response_id` + обрезка через 8-10 ходов |
+| **База знаний** | PostgreSQL, данные подгружаются через tools (lazy loading) |
+| **Аудио формат** | OGG -> MP3 (64k) через pydub + ffmpeg |
+| **Язык транскрипции** | `language="ru"` принудительно |
+| **Обработка ошибок** | Retry с exponential backoff, graceful degradation |
+
+Все рекомендации соответствуют конституции проекта (принцип V -- архитектура агента с function calling, принцип VII -- минимум данных во внешние API) и спецификации (FR-001 через FR-005, SC-001 через SC-003).</result>
+<usage><total_tokens>87125</total_tokens><tool_uses>15</tool_uses><duration_ms>194101</duration_ms></usage>
+</task-notification>
+Full transcript available at: /private/tmp/claude-501/-Users-user-github-luna-the-dog/tasks/a1e95a324a1e5e08a.output
+
+---
+
+Tool loaded.
+
+---
+
+Напиши сообщение для коммита

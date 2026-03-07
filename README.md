@@ -82,6 +82,32 @@ npm run dev
 | `mypy app/` | Проверка типов |
 | `docker compose up -d` | Запуск продакшна |
 
+## Качество кода и автопроверки
+
+В проекте используется единый базовый цикл проверки качества перед коммитом:
+
+- `ruff` как обязательный глобальный линтер
+- `ruff-format` как обязательная проверка форматирования
+- `mypy` как обязательная типизация для core-слоёв backend (`app/services`, `app/db`, `app/api/deps.py`)
+
+Запуск из корня репозитория:
+
+```bash
+backend/.venv/bin/pre-commit run --all-files
+```
+
+Отдельно автотесты запускаются командой:
+
+```bash
+backend/.venv/bin/pytest backend/tests
+```
+
+Если нужно полное диагностическое типизирование backend (вне commit gate), используйте:
+
+```bash
+backend/.venv/bin/mypy --config-file backend/pyproject.toml backend
+```
+
 ## Структура проекта
 
 ```

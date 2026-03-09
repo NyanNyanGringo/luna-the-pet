@@ -3,7 +3,7 @@
   "checkpoint_id": "260753e86bb0",
   "strategy": "manual-commit",
   "branch": "001-pet-care-assistant",
-  "checkpoints_count": 1,
+  "checkpoints_count": 3,
   "files_touched": [
     "README.md",
     "backend/alembic/versions/2026-03-07_7f0ce16e469b_add_us1_models_health_nutrition_.py",
@@ -40,13 +40,20 @@
       "context": "/26/0753e86bb0/0/context.md",
       "content_hash": "/26/0753e86bb0/0/content_hash.txt",
       "prompt": "/26/0753e86bb0/0/prompt.txt"
+    },
+    {
+      "metadata": "/26/0753e86bb0/1/metadata.json",
+      "transcript": "/26/0753e86bb0/1/full.jsonl",
+      "context": "/26/0753e86bb0/1/context.md",
+      "content_hash": "/26/0753e86bb0/1/content_hash.txt",
+      "prompt": "/26/0753e86bb0/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 39,
-    "cache_creation_tokens": 89832,
-    "cache_read_tokens": 1275315,
-    "output_tokens": 23447,
-    "api_call_count": 22
+    "input_tokens": 92,
+    "cache_creation_tokens": 312760,
+    "cache_read_tokens": 3470641,
+    "output_tokens": 39501,
+    "api_call_count": 52
   }
 }

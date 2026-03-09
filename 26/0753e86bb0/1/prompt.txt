@@ -1,0 +1,575 @@
+Завершили в тасках фазу №2. Что было сделано если переводить в User Stories вкратце? Какие функции пользовательские были реализованы? Что необходимо с моей стороы (телеграм токен бота и т.п.), чтобы можно было запустить текущее состояние продукта?
+
+---
+
+Можно пока на localhost использовать?
+
+---
+
+А как быть с dev режимом, как его тестировать?
+
+---
+
+Давай на основе правок последних обновим README файл
+
+---
+
+> Vladislav Parfentev:
+/start
+
+> Luna The Pet:
+Привет, Vladislav! Я Luna — твой помощник по уходу за питомцами.
+
+> Vladislav Parfentev:
+/help
+
+> Luna The Pet:
+Доступные команды:
+/start — начать работу с ботом
+/help — показать список команд
+/invite — создать приглашение в семью
+
+> Vladislav Parfentev:
+/connectai
+
+> Luna The Pet:
+OAuth не настроен. Обратитесь к администратору.
+
+> Vladislav Parfentev:
+/invite
+
+> Luna The Pet:
+Код приглашения: 647EB284
+Действителен до: 2026-03-09 20:54:30.236108+00:00
+
+app-1  | INFO:     Started server process [1]
+app-1  | INFO:     Waiting for application startup.
+app-1  | INFO:     Application startup complete.
+app-1  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+app-1  | 2026-03-08 20:53:38,224 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+app-1  | 2026-03-08 20:53:38,224 INFO sqlalchemy.engine.Engine [raw sql] ()
+app-1  | 2026-03-08 20:53:38,224 INFO sqlalchemy.engine.Engine select current_schema()
+app-1  | 2026-03-08 20:53:38,225 INFO sqlalchemy.engine.Engine [raw sql] ()
+app-1  | 2026-03-08 20:53:38,225 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+app-1  | 2026-03-08 20:53:38,225 INFO sqlalchemy.engine.Engine [raw sql] ()
+app-1  | 2026-03-08 20:53:38,226 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:53:38,234 INFO sqlalchemy.engine.Engine SELECT family.id, family.singleton_key, family.created_at 
+app-1  | FROM family 
+app-1  |  LIMIT $1::INTEGER
+app-1  | 2026-03-08 20:53:38,234 INFO sqlalchemy.engine.Engine [generated in 0.00008s] (1,)
+app-1  | 2026-03-08 20:53:38,236 INFO sqlalchemy.engine.Engine SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:53:38,236 INFO sqlalchemy.engine.Engine [no key 0.00005s] ()
+app-1  | 2026-03-08 20:53:38,236 INFO sqlalchemy.engine.Engine INSERT INTO family (singleton_key) VALUES ($1::BOOLEAN) RETURNING family.id, family.created_at
+app-1  | 2026-03-08 20:53:38,236 INFO sqlalchemy.engine.Engine [generated in 0.00007s] (True,)
+app-1  | 2026-03-08 20:53:38,237 INFO sqlalchemy.engine.Engine INSERT INTO family_settings (family_id, timezone, date_locale) VALUES ($1::INTEGER, $2::VARCHAR, $3::VARCHAR) RETURNING family_settings.id
+app-1  | 2026-03-08 20:53:38,237 INFO sqlalchemy.engine.Engine [generated in 0.00006s] (1, 'UTC', None)
+app-1  | 2026-03-08 20:53:38,238 INFO sqlalchemy.engine.Engine RELEASE SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:53:38,238 INFO sqlalchemy.engine.Engine [no key 0.00004s] ()
+app-1  | 2026-03-08 20:53:38,239 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:53:38,239 INFO sqlalchemy.engine.Engine [generated in 0.00006s] (716127576,)
+app-1  | 2026-03-08 20:53:38,240 INFO sqlalchemy.engine.Engine INSERT INTO family_member (id, first_name, username, is_authorized, family_id) VALUES ($1::BIGINT, $2::VARCHAR, $3::VARCHAR, $4::BOOLEAN, $5::INTEGER) RETURNING family_member.created_at
+app-1  | 2026-03-08 20:53:38,240 INFO sqlalchemy.engine.Engine [generated in 0.00006s] (716127576, 'Vladislav', 'VladislavParfentev', True, 1)
+app-1  | 2026-03-08 20:53:38,404 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     192.168.65.1:58189 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | INFO:     149.154.166.110:23950 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | 2026-03-08 20:54:24,186 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:54:24,186 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:54:24,186 INFO sqlalchemy.engine.Engine [cached since 45.95s ago] (716127576,)
+app-1  | 2026-03-08 20:54:24,188 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:54:24,188 INFO sqlalchemy.engine.Engine [cached since 45.95s ago] (716127576,)
+app-1  | 2026-03-08 20:54:24,410 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     149.154.166.110:59530 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | 2026-03-08 20:54:30,228 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:54:30,228 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:54:30,228 INFO sqlalchemy.engine.Engine [cached since 51.99s ago] (716127576,)
+app-1  | 2026-03-08 20:54:30,230 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:54:30,231 INFO sqlalchemy.engine.Engine [cached since 51.99s ago] (716127576,)
+app-1  | 2026-03-08 20:54:30,235 INFO sqlalchemy.engine.Engine SELECT family_invite.id, family_invite.family_id, family_invite.invite_code, family_invite.created_by, family_invite.expires_at, family_invite.revoked_at, family_invite.used_by, family_invite.used_at, family_invite.status 
+app-1  | FROM family_invite 
+app-1  | WHERE family_invite.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:54:30,235 INFO sqlalchemy.engine.Engine [generated in 0.00009s] (1,)
+app-1  | 2026-03-08 20:54:30,236 INFO sqlalchemy.engine.Engine INSERT INTO family_invite (family_id, invite_code, created_by, expires_at, revoked_at, used_by, used_at, status) VALUES ($1::INTEGER, $2::VARCHAR, $3::BIGINT, $4::TIMESTAMP WITH TIME ZONE, $5::TIMESTAMP WITH TIME ZONE, $6::BIGINT, $7::TIMESTAMP WITH TIME ZONE, $8::VARCHAR) RETURNING family_invite.id
+app-1  | 2026-03-08 20:54:30,236 INFO sqlalchemy.engine.Engine [generated in 0.00009s] (1, '647EB284', 716127576, datetime.datetime(2026, 3, 9, 20, 54, 30, 236108, tzinfo=datetime.timezone.utc), None, None, None, 'active')
+app-1  | 2026-03-08 20:54:30,311 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     149.154.166.110:39534 - "POST /webhook HTTP/1.1" 200 OK
+
+
+---
+
+Запустил контейнер, вроде все работает. Что еще могу сделать?
+
+---
+
+> Vladislav Parfentev:
+У меня собака Луна, порода дворняга
+
+> Luna The Pet:
+Я зарегистрировала вашу собаку Луну, порода — дворняга.
+
+Если хотите добавить больше информации о Луне (дата рождения, пол, особенности здоровья), просто уточните, и я внесу данные. Могу также помочь вести дневник кормлений, визитов к ветеринару, взвешиваний и прививок.
+
+> Vladislav Parfentev:
+Луна весит 28 кг
+
+> Luna The Pet:
+Вес Луна (28 кг) успешно записан на сегодняшнюю дату.
+
+Если потребуется отслеживать динамику веса или внести другую информацию по Луне — сообщите мне!
+
+> Vladislav Parfentev:
+Точнее, Луна весит 10 или 11 кг
+
+> Luna The Pet:
+Спасибо за уточнение! Уточните, пожалуйста, какой вес указать — 10 кг или 11 кг?  
+Когда подскажете, я скорректирую запись.
+
+> Vladislav Parfentev:
+Пускай будет среднее значение
+
+> Luna The Pet:
+Я обновила запись: вес Луна теперь 10,5 кг на сегодняшнюю дату.
+
+Если потребуется еще скорректировать данные или добавить новую информацию, дайте знать!
+
+> Vladislav Parfentev:
+17 февраля дали Луне баравекто. Найди также информацию о том для чего это лекартсво, я не помню, чтобы ты знал зачем оно и мне мог напомнить
+
+> Luna The Pet:
+Я записала, что 17 февраля Луне была дана таблетка Бравекто.
+
+Бравекто — это препарат для собак, применяемый для защиты от внешних паразитов: клещей и блох. Его действие обычно длится до 12 недель. Он помогает защищать Луну от укусов паразитов и связанных с ними инфекций. Если понадобится повторить обработку или узнать точную дату следующего приёма, просто сообщите!
+
+> Vladislav Parfentev:
+Что ты знаешь о Луне?
+
+> Luna The Pet:
+Вот основная информация о вашей собаке Луне:
+
+- Имя: Луна
+- Вид: собака
+- Порода: дворняга
+- Вес: 10,5 кг (на 8 марта 2026)
+- Принимает препарат Бравекто с 17 февраля 2026 года (для защиты от клещей и блох)
+
+Экстренный профиль (например, сведения об аллергиях, хронических болезнях, контактах ветеринара) пока пуст. Если захотите добавить такие данные — дайте знать!
+
+> Vladislav Parfentev:
+/help
+
+> Luna The Pet:
+Доступные команды:
+/start — начать работу с ботом
+/help — показать список команд
+/invite — создать приглашение в семью app-1  | INFO:     Started server process [1]
+app-1  | INFO:     Waiting for application startup.
+app-1  | INFO:     Application startup complete.
+app-1  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+app-1  | 2026-03-08 20:53:38,224 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+app-1  | 2026-03-08 20:53:38,224 INFO sqlalchemy.engine.Engine [raw sql] ()
+app-1  | 2026-03-08 20:53:38,224 INFO sqlalchemy.engine.Engine select current_schema()
+app-1  | 2026-03-08 20:53:38,225 INFO sqlalchemy.engine.Engine [raw sql] ()
+app-1  | 2026-03-08 20:53:38,225 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+app-1  | 2026-03-08 20:53:38,225 INFO sqlalchemy.engine.Engine [raw sql] ()
+app-1  | 2026-03-08 20:53:38,226 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:53:38,234 INFO sqlalchemy.engine.Engine SELECT family.id, family.singleton_key, family.created_at 
+app-1  | FROM family 
+app-1  |  LIMIT $1::INTEGER
+app-1  | 2026-03-08 20:53:38,234 INFO sqlalchemy.engine.Engine [generated in 0.00008s] (1,)
+app-1  | 2026-03-08 20:53:38,236 INFO sqlalchemy.engine.Engine SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:53:38,236 INFO sqlalchemy.engine.Engine [no key 0.00005s] ()
+app-1  | 2026-03-08 20:53:38,236 INFO sqlalchemy.engine.Engine INSERT INTO family (singleton_key) VALUES ($1::BOOLEAN) RETURNING family.id, family.created_at
+app-1  | 2026-03-08 20:53:38,236 INFO sqlalchemy.engine.Engine [generated in 0.00007s] (True,)
+app-1  | 2026-03-08 20:53:38,237 INFO sqlalchemy.engine.Engine INSERT INTO family_settings (family_id, timezone, date_locale) VALUES ($1::INTEGER, $2::VARCHAR, $3::VARCHAR) RETURNING family_settings.id
+app-1  | 2026-03-08 20:53:38,237 INFO sqlalchemy.engine.Engine [generated in 0.00006s] (1, 'UTC', None)
+app-1  | 2026-03-08 20:53:38,238 INFO sqlalchemy.engine.Engine RELEASE SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:53:38,238 INFO sqlalchemy.engine.Engine [no key 0.00004s] ()
+app-1  | 2026-03-08 20:53:38,239 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:53:38,239 INFO sqlalchemy.engine.Engine [generated in 0.00006s] (716127576,)
+app-1  | 2026-03-08 20:53:38,240 INFO sqlalchemy.engine.Engine INSERT INTO family_member (id, first_name, username, is_authorized, family_id) VALUES ($1::BIGINT, $2::VARCHAR, $3::VARCHAR, $4::BOOLEAN, $5::INTEGER) RETURNING family_member.created_at
+app-1  | 2026-03-08 20:53:38,240 INFO sqlalchemy.engine.Engine [generated in 0.00006s] (716127576, 'Vladislav', 'VladislavParfentev', True, 1)
+app-1  | 2026-03-08 20:53:38,404 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     192.168.65.1:58189 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | INFO:     149.154.166.110:23950 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | 2026-03-08 20:54:24,186 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:54:24,186 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:54:24,186 INFO sqlalchemy.engine.Engine [cached since 45.95s ago] (716127576,)
+app-1  | 2026-03-08 20:54:24,188 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:54:24,188 INFO sqlalchemy.engine.Engine [cached since 45.95s ago] (716127576,)
+app-1  | 2026-03-08 20:54:24,410 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     149.154.166.110:59530 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | 2026-03-08 20:54:30,228 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:54:30,228 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:54:30,228 INFO sqlalchemy.engine.Engine [cached since 51.99s ago] (716127576,)
+app-1  | 2026-03-08 20:54:30,230 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:54:30,231 INFO sqlalchemy.engine.Engine [cached since 51.99s ago] (716127576,)
+app-1  | 2026-03-08 20:54:30,235 INFO sqlalchemy.engine.Engine SELECT family_invite.id, family_invite.family_id, family_invite.invite_code, family_invite.created_by, family_invite.expires_at, family_invite.revoked_at, family_invite.used_by, family_invite.used_at, family_invite.status 
+app-1  | FROM family_invite 
+app-1  | WHERE family_invite.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:54:30,235 INFO sqlalchemy.engine.Engine [generated in 0.00009s] (1,)
+app-1  | 2026-03-08 20:54:30,236 INFO sqlalchemy.engine.Engine INSERT INTO family_invite (family_id, invite_code, created_by, expires_at, revoked_at, used_by, used_at, status) VALUES ($1::INTEGER, $2::VARCHAR, $3::BIGINT, $4::TIMESTAMP WITH TIME ZONE, $5::TIMESTAMP WITH TIME ZONE, $6::BIGINT, $7::TIMESTAMP WITH TIME ZONE, $8::VARCHAR) RETURNING family_invite.id
+app-1  | 2026-03-08 20:54:30,236 INFO sqlalchemy.engine.Engine [generated in 0.00009s] (1, '647EB284', 716127576, datetime.datetime(2026, 3, 9, 20, 54, 30, 236108, tzinfo=datetime.timezone.utc), None, None, None, 'active')
+app-1  | 2026-03-08 20:54:30,311 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     149.154.166.110:39534 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | 2026-03-08 20:55:58,408 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:55:58,409 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:55:58,409 INFO sqlalchemy.engine.Engine [cached since 140.2s ago] (716127576,)
+app-1  | 2026-03-08 20:55:58,412 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:55:58,412 INFO sqlalchemy.engine.Engine [cached since 140.2s ago] (716127576,)
+app-1  | 2026-03-08 20:55:58,415 INFO sqlalchemy.engine.Engine SELECT conversation_state.user_id, conversation_state.last_response_id, conversation_state.turn_count, conversation_state.session_summary, conversation_state.updated_at 
+app-1  | FROM conversation_state 
+app-1  | WHERE conversation_state.user_id = $1::BIGINT
+app-1  | 2026-03-08 20:55:58,415 INFO sqlalchemy.engine.Engine [generated in 0.00017s] (716127576,)
+app-1  | 2026-03-08 20:55:58,417 INFO sqlalchemy.engine.Engine INSERT INTO conversation_state (user_id, last_response_id, turn_count, session_summary) VALUES ($1::BIGINT, $2::VARCHAR, $3::INTEGER, $4::VARCHAR) RETURNING conversation_state.updated_at
+app-1  | 2026-03-08 20:55:58,417 INFO sqlalchemy.engine.Engine [generated in 0.00007s] (716127576, None, 0, None)
+app-1  | 2026-03-08 20:55:58,418 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:55:58,418 INFO sqlalchemy.engine.Engine [generated in 0.00006s] (1,)
+app-1  | 2026-03-08 20:55:58,419 INFO sqlalchemy.engine.Engine SELECT pet.id, pet.name, pet.species, pet.breed, pet.birth_date, pet.gender, pet.origin_story, pet.blood_type, pet.chip_number, pet.vet_contact, pet.is_neutered, pet.is_active, pet.family_id, pet.created_by, pet.created_at 
+app-1  | FROM pet 
+app-1  | WHERE pet.family_id = $1::INTEGER AND pet.is_active IS true
+app-1  | 2026-03-08 20:55:58,419 INFO sqlalchemy.engine.Engine [generated in 0.00005s] (1,)
+app-1  | 2026-03-08 20:55:58,420 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:55:58,420 INFO sqlalchemy.engine.Engine [cached since 0.002015s ago] (1,)
+app-1  | 2026-03-08 20:55:58,421 INFO sqlalchemy.engine.Engine SELECT oauth_credential.id, oauth_credential.family_id, oauth_credential.provider, oauth_credential.access_token_enc, oauth_credential.refresh_token_enc, oauth_credential.expires_at, oauth_credential.status, oauth_credential.created_at, oauth_credential.updated_at 
+app-1  | FROM oauth_credential 
+app-1  | WHERE oauth_credential.family_id = $1::INTEGER AND oauth_credential.provider = $2::VARCHAR AND oauth_credential.status = $3::VARCHAR
+app-1  | 2026-03-08 20:55:58,421 INFO sqlalchemy.engine.Engine [generated in 0.00005s] (1, 'openai', 'active')
+app-1  | 2026-03-08 20:56:00,294 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:56:00,294 INFO sqlalchemy.engine.Engine [cached since 1.877s ago] (1,)
+app-1  | 2026-03-08 20:56:00,295 INFO sqlalchemy.engine.Engine SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:56:00,295 INFO sqlalchemy.engine.Engine [no key 0.00005s] ()
+app-1  | 2026-03-08 20:56:00,296 INFO sqlalchemy.engine.Engine INSERT INTO pet (name, species, breed, birth_date, gender, origin_story, blood_type, chip_number, vet_contact, is_neutered, is_active, family_id, created_by) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::DATE, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::VARCHAR, $9::VARCHAR, $10::BOOLEAN, $11::BOOLEAN, $12::INTEGER, $13::BIGINT) RETURNING pet.id, pet.created_at
+app-1  | 2026-03-08 20:56:00,296 INFO sqlalchemy.engine.Engine [generated in 0.00007s] ('Луна', 'dog', 'дворняга', None, None, None, None, None, None, False, True, 1, 716127576)
+app-1  | 2026-03-08 20:56:00,297 INFO sqlalchemy.engine.Engine INSERT INTO change_log (entity_type, entity_id, action, actor_id, diff_json) VALUES ($1::VARCHAR, $2::INTEGER, $3::VARCHAR, $4::BIGINT, $5::JSON) RETURNING change_log.id, change_log.changed_at
+app-1  | 2026-03-08 20:56:00,297 INFO sqlalchemy.engine.Engine [generated in 0.00006s] ('pet', 1, 'create', 716127576, '{"name": "\\u041b\\u0443\\u043d\\u0430", "species": "dog", "family_id": 1, "created_by": 716127576, "breed": "\\u0434\\u0432\\u043e\\u0440\\u043d\\u044f\\u0433\\u0430"}')
+app-1  | 2026-03-08 20:56:00,298 INFO sqlalchemy.engine.Engine RELEASE SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:56:00,298 INFO sqlalchemy.engine.Engine [no key 0.00004s] ()
+app-1  | 2026-03-08 20:56:02,821 INFO sqlalchemy.engine.Engine UPDATE conversation_state SET last_response_id=$1::VARCHAR, turn_count=$2::INTEGER, updated_at=now() WHERE conversation_state.user_id = $3::BIGINT
+app-1  | 2026-03-08 20:56:02,821 INFO sqlalchemy.engine.Engine [generated in 0.00027s] ('resp_0237ec0cce0a91dd0069ade260d8f88197b6ff9c62c82887e2', 1, 716127576)
+app-1  | 2026-03-08 20:56:03,036 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     192.168.65.1:36970 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | 2026-03-08 20:56:36,474 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:56:36,474 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:56:36,475 INFO sqlalchemy.engine.Engine [cached since 178.2s ago] (716127576,)
+app-1  | 2026-03-08 20:56:36,478 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:56:36,478 INFO sqlalchemy.engine.Engine [cached since 178.2s ago] (716127576,)
+app-1  | 2026-03-08 20:56:36,487 INFO sqlalchemy.engine.Engine SELECT conversation_state.user_id, conversation_state.last_response_id, conversation_state.turn_count, conversation_state.session_summary, conversation_state.updated_at 
+app-1  | FROM conversation_state 
+app-1  | WHERE conversation_state.user_id = $1::BIGINT
+app-1  | 2026-03-08 20:56:36,488 INFO sqlalchemy.engine.Engine [cached since 38.07s ago] (716127576,)
+app-1  | 2026-03-08 20:56:36,488 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:56:36,488 INFO sqlalchemy.engine.Engine [cached since 38.07s ago] (1,)
+app-1  | 2026-03-08 20:56:36,489 INFO sqlalchemy.engine.Engine SELECT pet.id, pet.name, pet.species, pet.breed, pet.birth_date, pet.gender, pet.origin_story, pet.blood_type, pet.chip_number, pet.vet_contact, pet.is_neutered, pet.is_active, pet.family_id, pet.created_by, pet.created_at 
+app-1  | FROM pet 
+app-1  | WHERE pet.family_id = $1::INTEGER AND pet.is_active IS true
+app-1  | 2026-03-08 20:56:36,489 INFO sqlalchemy.engine.Engine [cached since 38.07s ago] (1,)
+app-1  | 2026-03-08 20:56:36,489 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:56:36,489 INFO sqlalchemy.engine.Engine [cached since 38.07s ago] (1,)
+app-1  | 2026-03-08 20:56:36,490 INFO sqlalchemy.engine.Engine SELECT medication.id, medication.pet_id, medication.name, medication.dosage, medication.frequency, medication.frequency_days, medication.start_date, medication.end_date, medication.last_given_date, medication.is_active, medication.notes, medication.recorded_by, medication.created_at 
+app-1  | FROM medication 
+app-1  | WHERE medication.pet_id = $1::INTEGER AND medication.is_active IS true ORDER BY medication.start_date DESC
+app-1  | 2026-03-08 20:56:36,490 INFO sqlalchemy.engine.Engine [generated in 0.00006s] (1,)
+app-1  | 2026-03-08 20:56:36,492 INFO sqlalchemy.engine.Engine SELECT oauth_credential.id, oauth_credential.family_id, oauth_credential.provider, oauth_credential.access_token_enc, oauth_credential.refresh_token_enc, oauth_credential.expires_at, oauth_credential.status, oauth_credential.created_at, oauth_credential.updated_at 
+app-1  | FROM oauth_credential 
+app-1  | WHERE oauth_credential.family_id = $1::INTEGER AND oauth_credential.provider = $2::VARCHAR AND oauth_credential.status = $3::VARCHAR
+app-1  | 2026-03-08 20:56:36,492 INFO sqlalchemy.engine.Engine [cached since 38.07s ago] (1, 'openai', 'active')
+app-1  | 2026-03-08 20:56:38,003 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:56:38,003 INFO sqlalchemy.engine.Engine [cached since 39.58s ago] (1,)
+app-1  | 2026-03-08 20:56:38,005 INFO sqlalchemy.engine.Engine SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:56:38,005 INFO sqlalchemy.engine.Engine [no key 0.00013s] ()
+app-1  | 2026-03-08 20:56:38,007 INFO sqlalchemy.engine.Engine SELECT pet.id, pet.name, pet.species, pet.breed, pet.birth_date, pet.gender, pet.origin_story, pet.blood_type, pet.chip_number, pet.vet_contact, pet.is_neutered, pet.is_active, pet.family_id, pet.created_by, pet.created_at 
+app-1  | FROM pet 
+app-1  | WHERE pet.family_id = $1::INTEGER AND pet.is_active IS true AND lower(pet.name) = $2::VARCHAR
+app-1  | 2026-03-08 20:56:38,007 INFO sqlalchemy.engine.Engine [generated in 0.00017s] (1, 'луна')
+app-1  | 2026-03-08 20:56:38,010 INFO sqlalchemy.engine.Engine INSERT INTO weight_record (pet_id, weight_kg, measured_at, recorded_by) VALUES ($1::INTEGER, $2::NUMERIC(5, 2), $3::DATE, $4::BIGINT) RETURNING weight_record.id, weight_record.created_at
+app-1  | 2026-03-08 20:56:38,010 INFO sqlalchemy.engine.Engine [generated in 0.00013s] (1, Decimal('28'), datetime.date(2026, 3, 8), 716127576)
+app-1  | 2026-03-08 20:56:38,012 INFO sqlalchemy.engine.Engine INSERT INTO change_log (entity_type, entity_id, action, actor_id, diff_json) VALUES ($1::VARCHAR, $2::INTEGER, $3::VARCHAR, $4::BIGINT, $5::JSON) RETURNING change_log.id, change_log.changed_at
+app-1  | 2026-03-08 20:56:38,012 INFO sqlalchemy.engine.Engine [cached since 37.71s ago] ('weight_record', 1, 'create', 716127576, '{"pet_id": 1, "weight_kg": "28", "measured_at": "2026-03-08", "recorded_by": 716127576}')
+app-1  | 2026-03-08 20:56:38,013 INFO sqlalchemy.engine.Engine RELEASE SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:56:38,013 INFO sqlalchemy.engine.Engine [no key 0.00005s] ()
+app-1  | 2026-03-08 20:56:39,365 INFO sqlalchemy.engine.Engine UPDATE conversation_state SET last_response_id=$1::VARCHAR, turn_count=$2::INTEGER, updated_at=now() WHERE conversation_state.user_id = $3::BIGINT
+app-1  | 2026-03-08 20:56:39,365 INFO sqlalchemy.engine.Engine [cached since 36.54s ago] ('resp_0237ec0cce0a91dd0069ade2862e008197a8e9055bff41d1e9', 2, 716127576)
+app-1  | 2026-03-08 20:56:39,531 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     162.159.140.245:52082 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | 2026-03-08 20:56:53,061 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:56:53,062 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:56:53,062 INFO sqlalchemy.engine.Engine [cached since 194.8s ago] (716127576,)
+app-1  | 2026-03-08 20:56:53,064 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:56:53,064 INFO sqlalchemy.engine.Engine [cached since 194.8s ago] (716127576,)
+app-1  | 2026-03-08 20:56:53,065 INFO sqlalchemy.engine.Engine SELECT conversation_state.user_id, conversation_state.last_response_id, conversation_state.turn_count, conversation_state.session_summary, conversation_state.updated_at 
+app-1  | FROM conversation_state 
+app-1  | WHERE conversation_state.user_id = $1::BIGINT
+app-1  | 2026-03-08 20:56:53,065 INFO sqlalchemy.engine.Engine [cached since 54.65s ago] (716127576,)
+app-1  | 2026-03-08 20:56:53,066 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:56:53,066 INFO sqlalchemy.engine.Engine [cached since 54.65s ago] (1,)
+app-1  | 2026-03-08 20:56:53,071 INFO sqlalchemy.engine.Engine SELECT pet.id, pet.name, pet.species, pet.breed, pet.birth_date, pet.gender, pet.origin_story, pet.blood_type, pet.chip_number, pet.vet_contact, pet.is_neutered, pet.is_active, pet.family_id, pet.created_by, pet.created_at 
+app-1  | FROM pet 
+app-1  | WHERE pet.family_id = $1::INTEGER AND pet.is_active IS true
+app-1  | 2026-03-08 20:56:53,071 INFO sqlalchemy.engine.Engine [cached since 54.65s ago] (1,)
+app-1  | 2026-03-08 20:56:53,072 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:56:53,072 INFO sqlalchemy.engine.Engine [cached since 54.65s ago] (1,)
+app-1  | 2026-03-08 20:56:53,073 INFO sqlalchemy.engine.Engine SELECT medication.id, medication.pet_id, medication.name, medication.dosage, medication.frequency, medication.frequency_days, medication.start_date, medication.end_date, medication.last_given_date, medication.is_active, medication.notes, medication.recorded_by, medication.created_at 
+app-1  | FROM medication 
+app-1  | WHERE medication.pet_id = $1::INTEGER AND medication.is_active IS true ORDER BY medication.start_date DESC
+app-1  | 2026-03-08 20:56:53,073 INFO sqlalchemy.engine.Engine [cached since 16.58s ago] (1,)
+app-1  | 2026-03-08 20:56:53,073 INFO sqlalchemy.engine.Engine SELECT oauth_credential.id, oauth_credential.family_id, oauth_credential.provider, oauth_credential.access_token_enc, oauth_credential.refresh_token_enc, oauth_credential.expires_at, oauth_credential.status, oauth_credential.created_at, oauth_credential.updated_at 
+app-1  | FROM oauth_credential 
+app-1  | WHERE oauth_credential.family_id = $1::INTEGER AND oauth_credential.provider = $2::VARCHAR AND oauth_credential.status = $3::VARCHAR
+app-1  | 2026-03-08 20:56:53,073 INFO sqlalchemy.engine.Engine [cached since 54.65s ago] (1, 'openai', 'active')
+app-1  | 2026-03-08 20:56:54,897 INFO sqlalchemy.engine.Engine UPDATE conversation_state SET last_response_id=$1::VARCHAR, turn_count=$2::INTEGER, updated_at=now() WHERE conversation_state.user_id = $3::BIGINT
+app-1  | 2026-03-08 20:56:54,898 INFO sqlalchemy.engine.Engine [cached since 52.07s ago] ('resp_0237ec0cce0a91dd0069ade295a6808197833e3628341d68cd', 3, 716127576)
+app-1  | 2026-03-08 20:56:55,058 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     162.159.140.245:38571 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | 2026-03-08 20:57:05,811 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:57:05,811 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:57:05,811 INFO sqlalchemy.engine.Engine [cached since 207.6s ago] (716127576,)
+app-1  | 2026-03-08 20:57:05,819 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:57:05,819 INFO sqlalchemy.engine.Engine [cached since 207.6s ago] (716127576,)
+app-1  | 2026-03-08 20:57:05,819 INFO sqlalchemy.engine.Engine SELECT conversation_state.user_id, conversation_state.last_response_id, conversation_state.turn_count, conversation_state.session_summary, conversation_state.updated_at 
+app-1  | FROM conversation_state 
+app-1  | WHERE conversation_state.user_id = $1::BIGINT
+app-1  | 2026-03-08 20:57:05,819 INFO sqlalchemy.engine.Engine [cached since 67.4s ago] (716127576,)
+app-1  | 2026-03-08 20:57:05,820 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:57:05,820 INFO sqlalchemy.engine.Engine [cached since 67.4s ago] (1,)
+app-1  | 2026-03-08 20:57:05,820 INFO sqlalchemy.engine.Engine SELECT pet.id, pet.name, pet.species, pet.breed, pet.birth_date, pet.gender, pet.origin_story, pet.blood_type, pet.chip_number, pet.vet_contact, pet.is_neutered, pet.is_active, pet.family_id, pet.created_by, pet.created_at 
+app-1  | FROM pet 
+app-1  | WHERE pet.family_id = $1::INTEGER AND pet.is_active IS true
+app-1  | 2026-03-08 20:57:05,820 INFO sqlalchemy.engine.Engine [cached since 67.4s ago] (1,)
+app-1  | 2026-03-08 20:57:05,821 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:57:05,821 INFO sqlalchemy.engine.Engine [cached since 67.4s ago] (1,)
+app-1  | 2026-03-08 20:57:05,821 INFO sqlalchemy.engine.Engine SELECT medication.id, medication.pet_id, medication.name, medication.dosage, medication.frequency, medication.frequency_days, medication.start_date, medication.end_date, medication.last_given_date, medication.is_active, medication.notes, medication.recorded_by, medication.created_at 
+app-1  | FROM medication 
+app-1  | WHERE medication.pet_id = $1::INTEGER AND medication.is_active IS true ORDER BY medication.start_date DESC
+app-1  | 2026-03-08 20:57:05,821 INFO sqlalchemy.engine.Engine [cached since 29.33s ago] (1,)
+app-1  | 2026-03-08 20:57:05,822 INFO sqlalchemy.engine.Engine SELECT oauth_credential.id, oauth_credential.family_id, oauth_credential.provider, oauth_credential.access_token_enc, oauth_credential.refresh_token_enc, oauth_credential.expires_at, oauth_credential.status, oauth_credential.created_at, oauth_credential.updated_at 
+app-1  | FROM oauth_credential 
+app-1  | WHERE oauth_credential.family_id = $1::INTEGER AND oauth_credential.provider = $2::VARCHAR AND oauth_credential.status = $3::VARCHAR
+app-1  | 2026-03-08 20:57:05,822 INFO sqlalchemy.engine.Engine [cached since 67.4s ago] (1, 'openai', 'active')
+app-1  | 2026-03-08 20:57:07,664 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:57:07,664 INFO sqlalchemy.engine.Engine [cached since 69.24s ago] (1,)
+app-1  | 2026-03-08 20:57:07,667 INFO sqlalchemy.engine.Engine SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:57:07,667 INFO sqlalchemy.engine.Engine [no key 0.00025s] ()
+app-1  | 2026-03-08 20:57:07,668 INFO sqlalchemy.engine.Engine SELECT pet.id, pet.name, pet.species, pet.breed, pet.birth_date, pet.gender, pet.origin_story, pet.blood_type, pet.chip_number, pet.vet_contact, pet.is_neutered, pet.is_active, pet.family_id, pet.created_by, pet.created_at 
+app-1  | FROM pet 
+app-1  | WHERE pet.family_id = $1::INTEGER AND pet.is_active IS true AND lower(pet.name) = $2::VARCHAR
+app-1  | 2026-03-08 20:57:07,668 INFO sqlalchemy.engine.Engine [cached since 29.66s ago] (1, 'луна')
+app-1  | 2026-03-08 20:57:07,669 INFO sqlalchemy.engine.Engine INSERT INTO weight_record (pet_id, weight_kg, measured_at, recorded_by) VALUES ($1::INTEGER, $2::NUMERIC(5, 2), $3::DATE, $4::BIGINT) RETURNING weight_record.id, weight_record.created_at
+app-1  | 2026-03-08 20:57:07,670 INFO sqlalchemy.engine.Engine [cached since 29.66s ago] (1, Decimal('10.5'), datetime.date(2026, 3, 8), 716127576)
+app-1  | 2026-03-08 20:57:07,670 INFO sqlalchemy.engine.Engine INSERT INTO change_log (entity_type, entity_id, action, actor_id, diff_json) VALUES ($1::VARCHAR, $2::INTEGER, $3::VARCHAR, $4::BIGINT, $5::JSON) RETURNING change_log.id, change_log.changed_at
+app-1  | 2026-03-08 20:57:07,670 INFO sqlalchemy.engine.Engine [cached since 67.37s ago] ('weight_record', 2, 'create', 716127576, '{"pet_id": 1, "weight_kg": "10.5", "measured_at": "2026-03-08", "recorded_by": 716127576}')
+app-1  | 2026-03-08 20:57:07,671 INFO sqlalchemy.engine.Engine RELEASE SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:57:07,671 INFO sqlalchemy.engine.Engine [no key 0.00005s] ()
+app-1  | 2026-03-08 20:57:08,942 INFO sqlalchemy.engine.Engine UPDATE conversation_state SET last_response_id=$1::VARCHAR, turn_count=$2::INTEGER, updated_at=now() WHERE conversation_state.user_id = $3::BIGINT
+app-1  | 2026-03-08 20:57:08,943 INFO sqlalchemy.engine.Engine [cached since 66.12s ago] ('resp_0237ec0cce0a91dd0069ade2a3d558819796078c21f69b4bc6', 4, 716127576)
+app-1  | 2026-03-08 20:57:09,057 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     162.159.140.245:42730 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | 2026-03-08 20:58:40,108 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:58:40,108 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:58:40,108 INFO sqlalchemy.engine.Engine [cached since 301.9s ago] (716127576,)
+app-1  | 2026-03-08 20:58:40,111 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:58:40,111 INFO sqlalchemy.engine.Engine [cached since 301.9s ago] (716127576,)
+app-1  | 2026-03-08 20:58:40,113 INFO sqlalchemy.engine.Engine SELECT conversation_state.user_id, conversation_state.last_response_id, conversation_state.turn_count, conversation_state.session_summary, conversation_state.updated_at 
+app-1  | FROM conversation_state 
+app-1  | WHERE conversation_state.user_id = $1::BIGINT
+app-1  | 2026-03-08 20:58:40,113 INFO sqlalchemy.engine.Engine [cached since 161.7s ago] (716127576,)
+app-1  | 2026-03-08 20:58:40,114 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:58:40,114 INFO sqlalchemy.engine.Engine [cached since 161.7s ago] (1,)
+app-1  | 2026-03-08 20:58:40,115 INFO sqlalchemy.engine.Engine SELECT pet.id, pet.name, pet.species, pet.breed, pet.birth_date, pet.gender, pet.origin_story, pet.blood_type, pet.chip_number, pet.vet_contact, pet.is_neutered, pet.is_active, pet.family_id, pet.created_by, pet.created_at 
+app-1  | FROM pet 
+app-1  | WHERE pet.family_id = $1::INTEGER AND pet.is_active IS true
+app-1  | 2026-03-08 20:58:40,115 INFO sqlalchemy.engine.Engine [cached since 161.7s ago] (1,)
+app-1  | 2026-03-08 20:58:40,116 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:58:40,116 INFO sqlalchemy.engine.Engine [cached since 161.7s ago] (1,)
+app-1  | 2026-03-08 20:58:40,117 INFO sqlalchemy.engine.Engine SELECT medication.id, medication.pet_id, medication.name, medication.dosage, medication.frequency, medication.frequency_days, medication.start_date, medication.end_date, medication.last_given_date, medication.is_active, medication.notes, medication.recorded_by, medication.created_at 
+app-1  | FROM medication 
+app-1  | WHERE medication.pet_id = $1::INTEGER AND medication.is_active IS true ORDER BY medication.start_date DESC
+app-1  | 2026-03-08 20:58:40,117 INFO sqlalchemy.engine.Engine [cached since 123.6s ago] (1,)
+app-1  | 2026-03-08 20:58:40,118 INFO sqlalchemy.engine.Engine SELECT oauth_credential.id, oauth_credential.family_id, oauth_credential.provider, oauth_credential.access_token_enc, oauth_credential.refresh_token_enc, oauth_credential.expires_at, oauth_credential.status, oauth_credential.created_at, oauth_credential.updated_at 
+app-1  | FROM oauth_credential 
+app-1  | WHERE oauth_credential.family_id = $1::INTEGER AND oauth_credential.provider = $2::VARCHAR AND oauth_credential.status = $3::VARCHAR
+app-1  | 2026-03-08 20:58:40,118 INFO sqlalchemy.engine.Engine [cached since 161.7s ago] (1, 'openai', 'active')
+app-1  | 2026-03-08 20:58:41,455 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:58:41,455 INFO sqlalchemy.engine.Engine [cached since 163s ago] (1,)
+app-1  | 2026-03-08 20:58:41,463 INFO sqlalchemy.engine.Engine SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:58:41,463 INFO sqlalchemy.engine.Engine [no key 0.00009s] ()
+app-1  | 2026-03-08 20:58:41,465 INFO sqlalchemy.engine.Engine SELECT pet.id, pet.name, pet.species, pet.breed, pet.birth_date, pet.gender, pet.origin_story, pet.blood_type, pet.chip_number, pet.vet_contact, pet.is_neutered, pet.is_active, pet.family_id, pet.created_by, pet.created_at 
+app-1  | FROM pet 
+app-1  | WHERE pet.family_id = $1::INTEGER AND pet.is_active IS true AND lower(pet.name) = $2::VARCHAR
+app-1  | 2026-03-08 20:58:41,465 INFO sqlalchemy.engine.Engine [cached since 123.5s ago] (1, 'луна')
+app-1  | 2026-03-08 20:58:41,467 INFO sqlalchemy.engine.Engine INSERT INTO medication (pet_id, name, dosage, frequency, frequency_days, start_date, end_date, last_given_date, is_active, notes, recorded_by) VALUES ($1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::INTEGER, $6::DATE, $7::DATE, $8::DATE, $9::BOOLEAN, $10::VARCHAR, $11::BIGINT) RETURNING medication.id, medication.created_at
+app-1  | 2026-03-08 20:58:41,467 INFO sqlalchemy.engine.Engine [generated in 0.00016s] (1, 'Бравекто', 'см. инструкцию', None, None, datetime.date(2026, 2, 17), None, None, True, None, 716127576)
+app-1  | 2026-03-08 20:58:41,468 INFO sqlalchemy.engine.Engine INSERT INTO change_log (entity_type, entity_id, action, actor_id, diff_json) VALUES ($1::VARCHAR, $2::INTEGER, $3::VARCHAR, $4::BIGINT, $5::JSON) RETURNING change_log.id, change_log.changed_at
+app-1  | 2026-03-08 20:58:41,468 INFO sqlalchemy.engine.Engine [cached since 161.2s ago] ('medication', 1, 'create', 716127576, '{"pet_id": 1, "name": "\\u0411\\u0440\\u0430\\u0432\\u0435\\u043a\\u0442\\u043e", "start_date": "2026-02-17", "recorded_by": 716127576, "dosage": "\\u0441\\u043c. \\u0438\\u043d\\u0441\\u0442\\u0440\\u0443\\u043a\\u0446\\u0438\\u044e"}')
+app-1  | 2026-03-08 20:58:41,468 INFO sqlalchemy.engine.Engine RELEASE SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:58:41,468 INFO sqlalchemy.engine.Engine [no key 0.00003s] ()
+app-1  | 2026-03-08 20:58:43,588 INFO sqlalchemy.engine.Engine UPDATE conversation_state SET last_response_id=$1::VARCHAR, turn_count=$2::INTEGER, updated_at=now() WHERE conversation_state.user_id = $3::BIGINT
+app-1  | 2026-03-08 20:58:43,588 INFO sqlalchemy.engine.Engine [cached since 160.8s ago] ('resp_0237ec0cce0a91dd0069ade301a00c8197be7121e6afa5154b', 5, 716127576)
+app-1  | 2026-03-08 20:58:43,756 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     162.159.140.245:27026 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | 2026-03-08 20:59:07,472 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+app-1  | 2026-03-08 20:59:07,473 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:59:07,473 INFO sqlalchemy.engine.Engine [cached since 329.2s ago] (716127576,)
+app-1  | 2026-03-08 20:59:07,474 INFO sqlalchemy.engine.Engine SELECT family_member.id, family_member.first_name, family_member.username, family_member.is_authorized, family_member.created_at, family_member.family_id 
+app-1  | FROM family_member 
+app-1  | WHERE family_member.id = $1::BIGINT
+app-1  | 2026-03-08 20:59:07,474 INFO sqlalchemy.engine.Engine [cached since 329.2s ago] (716127576,)
+app-1  | 2026-03-08 20:59:07,475 INFO sqlalchemy.engine.Engine SELECT conversation_state.user_id, conversation_state.last_response_id, conversation_state.turn_count, conversation_state.session_summary, conversation_state.updated_at 
+app-1  | FROM conversation_state 
+app-1  | WHERE conversation_state.user_id = $1::BIGINT
+app-1  | 2026-03-08 20:59:07,475 INFO sqlalchemy.engine.Engine [cached since 189.1s ago] (716127576,)
+app-1  | 2026-03-08 20:59:07,476 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:59:07,476 INFO sqlalchemy.engine.Engine [cached since 189.1s ago] (1,)
+app-1  | 2026-03-08 20:59:07,481 INFO sqlalchemy.engine.Engine SELECT pet.id, pet.name, pet.species, pet.breed, pet.birth_date, pet.gender, pet.origin_story, pet.blood_type, pet.chip_number, pet.vet_contact, pet.is_neutered, pet.is_active, pet.family_id, pet.created_by, pet.created_at 
+app-1  | FROM pet 
+app-1  | WHERE pet.family_id = $1::INTEGER AND pet.is_active IS true
+app-1  | 2026-03-08 20:59:07,481 INFO sqlalchemy.engine.Engine [cached since 189.1s ago] (1,)
+app-1  | 2026-03-08 20:59:07,483 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:59:07,483 INFO sqlalchemy.engine.Engine [cached since 189.1s ago] (1,)
+app-1  | 2026-03-08 20:59:07,485 INFO sqlalchemy.engine.Engine SELECT medication.id, medication.pet_id, medication.name, medication.dosage, medication.frequency, medication.frequency_days, medication.start_date, medication.end_date, medication.last_given_date, medication.is_active, medication.notes, medication.recorded_by, medication.created_at 
+app-1  | FROM medication 
+app-1  | WHERE medication.pet_id = $1::INTEGER AND medication.is_active IS true ORDER BY medication.start_date DESC
+app-1  | 2026-03-08 20:59:07,485 INFO sqlalchemy.engine.Engine [cached since 151s ago] (1,)
+app-1  | 2026-03-08 20:59:07,486 INFO sqlalchemy.engine.Engine SELECT oauth_credential.id, oauth_credential.family_id, oauth_credential.provider, oauth_credential.access_token_enc, oauth_credential.refresh_token_enc, oauth_credential.expires_at, oauth_credential.status, oauth_credential.created_at, oauth_credential.updated_at 
+app-1  | FROM oauth_credential 
+app-1  | WHERE oauth_credential.family_id = $1::INTEGER AND oauth_credential.provider = $2::VARCHAR AND oauth_credential.status = $3::VARCHAR
+app-1  | 2026-03-08 20:59:07,487 INFO sqlalchemy.engine.Engine [cached since 189.1s ago] (1, 'openai', 'active')
+app-1  | 2026-03-08 20:59:09,244 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:59:09,244 INFO sqlalchemy.engine.Engine [cached since 190.8s ago] (1,)
+app-1  | 2026-03-08 20:59:09,249 INFO sqlalchemy.engine.Engine SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:59:09,249 INFO sqlalchemy.engine.Engine [no key 0.00029s] ()
+app-1  | 2026-03-08 20:59:09,249 INFO sqlalchemy.engine.Engine SELECT pet.id, pet.name, pet.species, pet.breed, pet.birth_date, pet.gender, pet.origin_story, pet.blood_type, pet.chip_number, pet.vet_contact, pet.is_neutered, pet.is_active, pet.family_id, pet.created_by, pet.created_at 
+app-1  | FROM pet 
+app-1  | WHERE pet.family_id = $1::INTEGER AND pet.is_active IS true AND lower(pet.name) = $2::VARCHAR
+app-1  | 2026-03-08 20:59:09,249 INFO sqlalchemy.engine.Engine [cached since 151.2s ago] (1, 'луна')
+app-1  | 2026-03-08 20:59:09,250 INFO sqlalchemy.engine.Engine RELEASE SAVEPOINT sa_savepoint_1
+app-1  | 2026-03-08 20:59:09,250 INFO sqlalchemy.engine.Engine [no key 0.00005s] ()
+app-1  | 2026-03-08 20:59:09,250 INFO sqlalchemy.engine.Engine SELECT family_settings.id, family_settings.family_id, family_settings.timezone, family_settings.date_locale 
+app-1  | FROM family_settings 
+app-1  | WHERE family_settings.family_id = $1::INTEGER
+app-1  | 2026-03-08 20:59:09,250 INFO sqlalchemy.engine.Engine [cached since 190.8s ago] (1,)
+app-1  | 2026-03-08 20:59:09,251 INFO sqlalchemy.engine.Engine SAVEPOINT sa_savepoint_2
+app-1  | 2026-03-08 20:59:09,251 INFO sqlalchemy.engine.Engine [no key 0.00004s] ()
+app-1  | 2026-03-08 20:59:09,251 INFO sqlalchemy.engine.Engine SELECT pet.id, pet.name, pet.species, pet.breed, pet.birth_date, pet.gender, pet.origin_story, pet.blood_type, pet.chip_number, pet.vet_contact, pet.is_neutered, pet.is_active, pet.family_id, pet.created_by, pet.created_at 
+app-1  | FROM pet 
+app-1  | WHERE pet.family_id = $1::INTEGER AND pet.is_active IS true AND lower(pet.name) = $2::VARCHAR
+app-1  | 2026-03-08 20:59:09,251 INFO sqlalchemy.engine.Engine [cached since 151.2s ago] (1, 'луна')
+app-1  | 2026-03-08 20:59:09,252 INFO sqlalchemy.engine.Engine SELECT emergency_profile.id, emergency_profile.pet_id, emergency_profile.allergies, emergency_profile.chronic_conditions, emergency_profile.vet_contact, emergency_profile.blood_type, emergency_profile.rabies_vaccination_date, emergency_profile.latest_weight_snapshot 
+app-1  | FROM emergency_profile 
+app-1  | WHERE emergency_profile.pet_id = $1::INTEGER
+app-1  | 2026-03-08 20:59:09,252 INFO sqlalchemy.engine.Engine [generated in 0.00006s] (1,)
+app-1  | 2026-03-08 20:59:09,253 INFO sqlalchemy.engine.Engine INSERT INTO emergency_profile (pet_id, allergies, chronic_conditions, vet_contact, blood_type, rabies_vaccination_date, latest_weight_snapshot) VALUES ($1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::DATE, $7::NUMERIC(5, 2)) RETURNING emergency_profile.id
+app-1  | 2026-03-08 20:59:09,253 INFO sqlalchemy.engine.Engine [generated in 0.00006s] (1, None, None, None, None, None, None)
+app-1  | 2026-03-08 20:59:09,254 INFO sqlalchemy.engine.Engine INSERT INTO change_log (entity_type, entity_id, action, actor_id, diff_json) VALUES ($1::VARCHAR, $2::INTEGER, $3::VARCHAR, $4::BIGINT, $5::JSON) RETURNING change_log.id, change_log.changed_at
+app-1  | 2026-03-08 20:59:09,254 INFO sqlalchemy.engine.Engine [cached since 189s ago] ('emergency_profile', 1, 'create', 716127576, '{"pet_id": 1}')
+app-1  | 2026-03-08 20:59:09,255 INFO sqlalchemy.engine.Engine RELEASE SAVEPOINT sa_savepoint_2
+app-1  | 2026-03-08 20:59:09,255 INFO sqlalchemy.engine.Engine [no key 0.00004s] ()
+app-1  | 2026-03-08 20:59:12,632 INFO sqlalchemy.engine.Engine UPDATE conversation_state SET last_response_id=$1::VARCHAR, turn_count=$2::INTEGER, updated_at=now() WHERE conversation_state.user_id = $3::BIGINT
+app-1  | 2026-03-08 20:59:12,632 INFO sqlalchemy.engine.Engine [cached since 189.8s ago] ('resp_0237ec0cce0a91dd0069ade31d68308197a0f569c21b34bcf2', 6, 716127576)
+app-1  | 2026-03-08 20:59:12,810 INFO sqlalchemy.engine.Engine COMMIT
+app-1  | INFO:     162.159.140.245:31688 - "POST /webhook HTTP/1.1" 200 OK
+app-1  | INFO:     162.159.140.245:42193 - "POST /webhook HTTP/1.1" 200 OK
+
+---
+
+Умеет ли агент принимать голосовые? Можно ли добавить его в чат для Луны, или нужно переписываться напрямую с агентом? Как мне добавить жену в этот чат?
+
+---
+
+> Vladislav Parfentev:
+Voice Message
+
+> Luna The Pet:
+Информация об аллергии на курицу для Луны принята, но требуется либо указать дату последней прививки от бешенства, либо оставить поле пустым. Пожалуйста, подскажите, когда была сделана прививка от бешенства, если вы знаете, или сообщите, если её не было — и я внесу остальные сведения!
+
+Вот тут странно, я сказал про аллергию на курицу, но он спросил про бешенство. Не понимаю.
+
+---
+
+OAuth еще не делали, верно?
+
+---
+
+Как настроить OPENAI_OAUTH_CLIENT_ID?
+
+---
+
+Странно, бот знает об имени Луны и Баравекто, но не знает про другое все. Это на аккаунте жены
+
+---
+
+[Request interrupted by user for tool use]

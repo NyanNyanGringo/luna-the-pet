@@ -316,3 +316,51 @@ class OAuthCredential(Base):
     family: Mapped[Family] = relationship(
         back_populates="oauth_credentials",
     )
+
+
+# ── ConversationState (состояние диалога) ─────────────────────────────────
+
+
+class ConversationState(Base):
+    """Состояние диалога пользователя с ботом.
+
+    PK — Telegram user ID (BigInteger, НЕ autoincrement), совпадает
+    с FamilyMember.id. Хранит контекст текущей сессии: ID последнего
+    ответа, счётчик ходов и краткое содержание.
+
+    Поля:
+        user_id: Telegram user ID, PK, FK -> family_member.id, CASCADE
+        last_response_id: ID последнего ответа от LLM (nullable), до 200 символов
+        turn_count: количество ходов в сессии (default 0)
+        session_summary: краткое содержание сессии (nullable)
+        updated_at: дата последнего обновления (timezone-aware, server_default)
+    """
+
+    __tablename__ = "conversation_state"
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("family_member.id", ondelete="CASCADE"),
+        primary_key=True,
+        autoincrement=False,
+    )
+    last_response_id: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+        default=None,
+    )
+    turn_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+    )
+    session_summary: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        server_onupdate=func.now(),
+    )

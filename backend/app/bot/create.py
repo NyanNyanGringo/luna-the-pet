@@ -9,6 +9,7 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from backend.app.bot.handlers.commands import create_commands_router
+from backend.app.bot.handlers.message import create_message_router
 from backend.app.bot.handlers.start import create_start_router
 from backend.app.bot.middlewares.auth import AuthMiddleware
 from backend.app.bot.middlewares.db import DbSessionMiddleware
@@ -72,6 +73,7 @@ def _register_routers(dispatcher: Dispatcher) -> None:
     """
     dispatcher.include_router(create_start_router())
     dispatcher.include_router(create_commands_router())
+    dispatcher.include_router(create_message_router())
 
 
 # --- Module-level объекты для импорта в main.py и webhook ---

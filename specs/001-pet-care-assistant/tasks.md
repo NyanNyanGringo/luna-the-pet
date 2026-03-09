@@ -82,35 +82,35 @@
 
 ### Модели US1
 
-- [ ] T022 [P] [US1] Create health models (WeightRecord, Vaccination, MedicalRecord, Medication, Note) in backend/app/db/models/health.py
-- [ ] T023 [P] [US1] Create nutrition models (DietRecord, FeedingEntry) in backend/app/db/models/nutrition.py
-- [ ] T024 [P] [US1] Add ConversationState model (last_response_id, turn_count, session_summary) to backend/app/db/models/family.py
-- [ ] T107 [P] [US1] Create EmergencyProfile model (allergies, chronic_conditions, vet_contact, blood_type, rabies_vaccination_date, latest_weight_snapshot) in backend/app/db/models/health.py
-- [ ] T025 [US1] Update models __init__.py and generate Alembic migration for all US1 entities
+- [x] T022 [P] [US1] Create health models (WeightRecord, Vaccination, MedicalRecord, Medication, Note) in backend/app/db/models/health.py
+- [x] T023 [P] [US1] Create nutrition models (DietRecord, FeedingEntry) in backend/app/db/models/nutrition.py
+- [x] T024 [P] [US1] Add ConversationState model (last_response_id, turn_count, session_summary) to backend/app/db/models/family.py
+- [x] T107 [P] [US1] Create EmergencyProfile model (allergies, chronic_conditions, vet_contact, blood_type, rabies_vaccination_date, latest_weight_snapshot) in backend/app/db/models/health.py
+- [x] T025 [US1] Update models __init__.py and generate Alembic migration for all US1 entities
 
 ### Сервисы US1
 
-- [ ] T026 [US1] Implement pet_service (get_pets, get_pet_by_name, resolve_pet_from_text, create/update pet) in backend/app/services/pet_service.py
-- [ ] T027 [P] [US1] Implement health_service (CRUD for weight, vaccination, medical records, medications, notes) in backend/app/services/health_service.py
-- [ ] T028 [P] [US1] Implement nutrition_service (CRUD for diet records with historicity, feeding entries) in backend/app/services/nutrition_service.py
-- [ ] T108 [US1] Extend health_service with EmergencyProfile CRUD and validation (blood type enum, vet contact format, explicit null/unknown states)
-- [ ] T109 [US1] Implement audit_service and integrate write-audit hooks into health/nutrition/pet services (actor_id required)
+- [x] T026 [US1] Implement pet_service (get_pets, get_pet_by_name, resolve_pet_from_text, create/update pet) in backend/app/services/pet_service.py
+- [x] T027 [P] [US1] Implement health_service (CRUD for weight, vaccination, medical records, medications, notes) in backend/app/services/health_service.py
+- [x] T028 [P] [US1] Implement nutrition_service (CRUD for diet records with historicity, feeding entries) in backend/app/services/nutrition_service.py
+- [x] T108 [US1] Extend health_service with EmergencyProfile CRUD and validation (blood type enum, vet contact format, explicit null/unknown states)
+- [x] T109 [US1] Implement audit_service and integrate write-audit hooks into health/nutrition/pet services (actor_id required)
 
 ### Агент US1
 
-- [ ] T029 [US1] Create system prompt builder (pets list, active meds, upcoming reminders, language detection per FR-015a, family timezone context per FR-008a) in backend/app/agent/prompts.py
-- [ ] T030 [US1] Define agent tool schemas (function definitions for all CRUD operations, strict mode JSON) in backend/app/agent/tools.py
-- [ ] T031 [US1] Implement tool handlers (bridge tool calls to services, return structured results) in backend/app/agent/tool_handlers.py
-- [ ] T032 [US1] Implement agent brain (run_agent with OpenAI Responses API, previous_response_id, context trimming at ~8-10 turns) in backend/app/agent/brain.py
-- [ ] T033 [P] [US1] Implement voice transcription (download OGG from Telegram, convert to MP3 via pydub, use auto-detect or ru/en selection from family/message context) in backend/app/agent/whisper.py
-- [ ] T110 [P] [US1] Add agent tools for EmergencyProfile update/read (including explicit capture of allergies, blood type, vet contact)
-- [ ] T111 [US1] Add timezone-aware relative date normalization utility («сегодня/завтра/вчера») before persistence and reminder creation
-- [ ] T112 [US1] Localize bot message templates (RU/EN) for confirmations, validation errors and clarification prompts
+- [x] T029 [US1] Create system prompt builder (pets list, active meds, upcoming reminders, language detection per FR-015a, family timezone context per FR-008a) in backend/app/agent/prompts.py
+- [x] T030 [US1] Define agent tool schemas (function definitions for all CRUD operations, strict mode JSON) in backend/app/agent/tools.py
+- [x] T031 [US1] Implement tool handlers (bridge tool calls to services, return structured results) in backend/app/agent/tool_handlers.py
+- [x] T032 [US1] Implement agent brain (run_agent with OpenAI Responses API, previous_response_id, context trimming at ~8-10 turns) in backend/app/agent/brain.py
+- [x] T033 [P] [US1] Implement voice transcription (download OGG from Telegram, convert to MP3 via pydub, use auto-detect or ru/en selection from family/message context) in backend/app/agent/whisper.py
+- [x] T110 [P] [US1] Add agent tools for EmergencyProfile update/read (including explicit capture of allergies, blood type, vet contact)
+- [x] T111 [US1] Add timezone-aware relative date normalization utility («сегодня/завтра/вчера») before persistence and reminder creation
+- [x] T112 [US1] Localize bot message templates (RU/EN) for confirmations, validation errors and clarification prompts
 
 ### Обработчик сообщений US1
 
-- [ ] T034 [US1] Implement message handler (voice -> transcribe -> agent, text -> agent, send response) in backend/app/bot/handlers/message.py
-- [ ] T035 [US1] Register US1 handlers (message router) in backend/app/bot/create.py
+- [x] T034 [US1] Implement message handler (voice -> transcribe -> agent, text -> agent, send response) in backend/app/bot/handlers/message.py
+- [x] T035 [US1] Register US1 handlers (message router) in backend/app/bot/create.py
 
 **Checkpoint**: MVP готов — можно записывать данные о питомце через Telegram голосом и текстом
 

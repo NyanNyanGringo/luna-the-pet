@@ -25,7 +25,7 @@ pydantic-settings>=2.7.0
 
 # --- Аудио (голосовые сообщения) ---
 pydub>=0.25.1
-audioop-lts>=0.2.1  # audioop удалён в Python 3.13, pydub зависит от него
+audioop-lts>=0.2.1; python_version >= "3.13"  # Нужен только там, где удалён stdlib audioop
 
 # --- HTTP-клиент ---
 httpx>=0.28.0

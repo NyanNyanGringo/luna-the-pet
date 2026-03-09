@@ -1,110 +1,142 @@
 # Luna the Dog
 
 AI-ассистент по уходу за питомцами для всей семьи.
-Telegram-бот с голосовым вводом + веб-панель с календарём и аналитикой.
+Telegram-бот с голосовым вводом, AI-агент на базе OpenAI GPT с function calling.
 
-## Возможности
+> **Статус**: MVP (US1) — запись данных о питомце голосом и текстом через Telegram
 
-- **Голос и текст** — скажите боту «Луна весит 28 кг» или отправьте голосовое, данные сохранятся автоматически
-- **Управление питомцами** — профили, история здоровья, вакцинации, лекарства, диета
-- **Напоминания** — автоматическое планирование приёма лекарств и вакцинаций с контролем выполнения
-- **Фотографии** — распознавание паспортов вакцинации и документов через Vision AI
-- **Веб-панель** — дашборд с графиками веса, календарём событий и чатом с ассистентом
-- **Ветеринарный отчёт** — генерация полного отчёта на любом языке мира
-- **Экстренная карточка** — мгновенный доступ к критической информации по команде `/sos`
-- **Экспорт/импорт** — полный бэкап и восстановление данных в JSON
+## Что умеет сейчас
+
+- **Голосовой и текстовый ввод** — отправьте боту «Луна весит 28 кг» или голосовое сообщение, агент извлечёт данные и сохранит в БД
+- **AI-агент** — OpenAI GPT с function calling: понимает естественный язык, ведёт контекст диалога, вызывает нужные сервисы
+- **Данные о здоровье** — вес, вакцинации, мед. записи, лекарства, заметки, экстренный профиль (аллергии, ветеринар, группа крови)
+- **Питание** — диетические записи, записи кормлений
+- **Семья** — регистрация через `/start`, инвайт-система (`/invite`) для добавления членов семьи
+- **Аудит** — все изменения логируются (кто, когда, что изменил)
+- **OpenAI OAuth** — подключение через `/connectai` (PKCE flow) или fallback на API-ключ
+- **Локализация** — RU/EN, относительные даты («сегодня», «вчера»)
+
+### Команды бота
+
+| Команда | Описание |
+|---------|----------|
+| `/start` | Регистрация семьи / присоединение по инвайт-коду |
+| `/help` | Справка |
+| `/invite` | Создать / показать инвайт-код для добавления члена семьи |
+| `/connectai` | Подключить OpenAI через OAuth (PKCE) |
+
+Любое текстовое или голосовое сообщение обрабатывается AI-агентом.
 
 ## Технологии
 
 | Слой | Стек |
 |------|------|
 | Backend | Python 3.11+, FastAPI, aiogram 3.x, SQLAlchemy 2.x async |
-| Frontend | Vue 3, Vite, Tailwind CSS, DaisyUI |
-| AI | OpenAI GPT (function calling), Whisper (голос), Vision (фото) |
+| AI | OpenAI GPT (function calling), Whisper (голосовая транскрипция) |
 | База данных | PostgreSQL 16, Alembic (миграции) |
-| Инфраструктура | Docker Compose, GitHub Actions, APScheduler |
+| Инфраструктура | Docker Compose |
 
 ## Требования
 
+- Docker + Docker Compose
+- Telegram Bot Token (через [@BotFather](https://t.me/BotFather))
+- OpenAI API Key ([platform.openai.com](https://platform.openai.com))
+
+Для локальной разработки без Docker дополнительно:
+
 - Python 3.11+
-- Node.js 20+
-- PostgreSQL 16 (или через Docker)
-- ffmpeg
-- Docker + Docker Compose (для продакшна)
+- PostgreSQL 16
+- ffmpeg (для обработки голосовых сообщений)
 
 ## Быстрый старт
 
-### Docker (рекомендуется)
+### Docker Compose (продакшн / полный запуск)
 
 ```bash
 git clone https://github.com/user/luna-the-dog.git
 cd luna-the-dog
 cp .env.example .env
-# Заполнить .env реальными токенами
+# Заполнить .env (см. раздел «Переменные окружения»)
 
 docker compose up -d
+docker compose exec app alembic upgrade head
+```
+
+Для работы webhook нужен публичный URL. Для локального тестирования — ngrok:
+
+```bash
+ngrok http 8000
+# Скопировать HTTPS-URL в .env → WEBHOOK_URL=https://xxx.ngrok-free.app/webhook
+docker compose restart app
 ```
 
 ### Локальная разработка
 
 ```bash
+# PostgreSQL через Docker
+docker compose up -d postgres
+
 # Backend
 cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 
-# PostgreSQL
-docker compose up -d postgres
+# Миграции
 alembic upgrade head
 
 # Запуск
-uvicorn app.main:app --reload
-
-# Frontend (в другом терминале)
-cd frontend
-npm ci
-npm run dev
+uvicorn backend.app.main:app --reload
 ```
 
-## Команды
+> **Примечание**: сейчас бот работает только через webhook. Для локальной разработки нужен туннель (ngrok, cloudflared). Режим polling (`DEBUG=true` без `WEBHOOK_URL`) планируется.
+
+## Переменные окружения
+
+Скопируйте `.env.example` → `.env` и заполните:
+
+| Переменная | Обязательна | Описание |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | да | Токен бота от @BotFather |
+| `OPENAI_API_KEY` | да | API-ключ OpenAI |
+| `DATABASE_URL` | да | Строка подключения PostgreSQL (задана по умолчанию для Docker) |
+| `POSTGRES_PASSWORD` | да | Пароль PostgreSQL (задан по умолчанию для Docker) |
+| `WEBHOOK_URL` | да* | URL вебхука, напр. `https://example.com/webhook` |
+| `WEBHOOK_SECRET` | да* | Секрет верификации вебхука |
+| `JWT_SECRET` | нет | Секрет JWT (для будущей веб-панели) |
+| `OPENAI_OAUTH_CLIENT_ID` | нет | OAuth Client ID для подключения через `/connectai` |
+| `OAUTH_ENCRYPTION_KEY` | нет | Fernet-ключ для шифрования OAuth-токенов |
+| `MEDIA_DIR` | нет | Путь к загрузкам (по умолчанию `/data/uploads`) |
+| `DEBUG` | нет | Режим отладки (по умолчанию `false`) |
+
+\* Обязательны при работе через webhook. При будущем режиме polling — не нужны.
+
+## Команды разработки
 
 | Команда | Описание |
 |---------|----------|
-| `uvicorn app.main:app --reload` | Dev-сервер backend |
-| `npm run dev` | Dev-сервер frontend |
+| `uvicorn backend.app.main:app --reload` | Dev-сервер backend |
 | `alembic upgrade head` | Применить миграции |
 | `alembic revision --autogenerate -m "..."` | Новая миграция |
-| `pytest` | Запуск тестов |
-| `pytest --cov=app` | Тесты с покрытием |
+| `backend/.venv/bin/pytest backend/tests` | Запуск тестов |
+| `backend/.venv/bin/pre-commit run --all-files` | Полная проверка качества |
 | `ruff check . --fix` | Линтер с автофиксом |
 | `ruff format .` | Форматирование |
-| `mypy app/` | Проверка типов |
-| `docker compose up -d` | Запуск продакшна |
+| `docker compose up -d` | Запуск через Docker |
 
-## Качество кода и автопроверки
+## Качество кода
 
-В проекте используется единый базовый цикл проверки качества перед коммитом:
+Pre-commit хуки проверяют перед каждым коммитом:
 
-- `ruff` как обязательный глобальный линтер
-- `ruff-format` как обязательная проверка форматирования
-- `mypy` как обязательная типизация для core-слоёв backend (`app/services`, `app/db`, `app/api/deps.py`)
-
-Запуск из корня репозитория:
+- **ruff** — линтер
+- **ruff-format** — форматирование
+- **mypy** — типизация для core-слоёв (`app/services`, `app/db`, `app/api/deps.py`)
 
 ```bash
+# Полная проверка
 backend/.venv/bin/pre-commit run --all-files
-```
 
-Отдельно автотесты запускаются командой:
-
-```bash
-backend/.venv/bin/pytest backend/tests
-```
-
-Если нужно полное диагностическое типизирование backend (вне commit gate), используйте:
-
-```bash
+# Диагностическая типизация (за пределами commit gate)
 backend/.venv/bin/mypy --config-file backend/pyproject.toml backend
 ```
 
@@ -113,21 +145,32 @@ backend/.venv/bin/mypy --config-file backend/pyproject.toml backend
 ```
 backend/
   app/
-    agent/          # AI-агент: мозг, инструменты, промпты, голос
-    api/routers/    # REST API + WebSocket чат
-    bot/            # Telegram-бот: хендлеры, мидлвари, клавиатуры
-    db/models/      # SQLAlchemy-модели
-    scheduler/      # Планировщик напоминаний
-    services/       # Бизнес-логика
+    agent/          # AI-агент: brain, tools, prompts, whisper, i18n
+    api/            # REST API (auth, deps, будущие роутеры)
+    bot/
+      handlers/     # Telegram: start, commands, message
+      middlewares/  # DB-сессия, авторизация
+    db/models/      # SQLAlchemy: family, pet, health, nutrition, audit
+    services/       # Бизнес-логика: pet, health, nutrition, family, audit, openai_auth
   alembic/          # Миграции БД
-  tests/            # unit / integration / contract
+  tests/            # unit-тесты
 
-frontend/
-  src/
-    components/     # Vue-компоненты
-    pages/          # Страницы SPA
-    services/       # API-клиент
+frontend/           # Vue 3 SPA (заготовка, реализация в US5)
 ```
+
+## Дорожная карта
+
+- [x] **US1** — Запись данных голосом/текстом (MVP)
+- [ ] **US2** — Управление питомцами (создание, просмотр, удаление)
+- [ ] **US3** — Напоминания и контроль выполнения
+- [ ] **US4** — Обработка фотографий (Vision AI)
+- [ ] **US5** — Веб-панель (дашборд, календарь, чат)
+- [ ] **US6** — Ветеринарный отчёт с переводом
+- [ ] **US7** — Экстренная карточка `/sos`
+- [ ] **US8** — Аналитика здоровья
+- [ ] **US9** — Учёт запасов и расписание кормления
+- [ ] **US10** — Экспорт/импорт данных
+- [ ] **US11** — Идеи подарков для питомца
 
 ## Лицензия
 

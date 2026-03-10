@@ -15,6 +15,7 @@
     "backend/app/main.py",
     "backend/tests/conftest.py",
     "backend/tests/unit/conftest.py",
+    "backend/tests/unit/test_us1_agent.py",
     "backend/tests/unit/test_us1_migrations.py",
     "docker-compose.dev.yml",
     "specs/002-dev-environment/tasks.md"
@@ -54,13 +55,20 @@
       "context": "/e8/83c5e3fc0e/4/context.md",
       "content_hash": "/e8/83c5e3fc0e/4/content_hash.txt",
       "prompt": "/e8/83c5e3fc0e/4/prompt.txt"
+    },
+    {
+      "metadata": "/e8/83c5e3fc0e/5/metadata.json",
+      "transcript": "/e8/83c5e3fc0e/5/full.jsonl",
+      "context": "/e8/83c5e3fc0e/5/context.md",
+      "content_hash": "/e8/83c5e3fc0e/5/content_hash.txt",
+      "prompt": "/e8/83c5e3fc0e/5/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 154,
-    "cache_creation_tokens": 270837,
-    "cache_read_tokens": 5286591,
-    "output_tokens": 63085,
-    "api_call_count": 120
+    "input_tokens": 205,
+    "cache_creation_tokens": 552966,
+    "cache_read_tokens": 9046421,
+    "output_tokens": 94408,
+    "api_call_count": 158
   }
 }

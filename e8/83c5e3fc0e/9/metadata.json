@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "e883c5e3fc0e",
+  "session_id": "e8722922-6d93-4853-a071-e17263d5cb82",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T20:39:19.040565Z",
+  "branch": "002-dev-environment",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "specs/002-dev-environment/checklists/requirements.md",
+    "specs/002-dev-environment/contracts/env-files.md",
+    "specs/002-dev-environment/contracts/startup-behavior.md",
+    "specs/002-dev-environment/data-model.md",
+    "specs/002-dev-environment/plan.md",
+    "specs/002-dev-environment/quickstart.md",
+    "specs/002-dev-environment/research.md",
+    "specs/002-dev-environment/spec.md",
+    "specs/002-dev-environment/tasks.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "50029dfff310",
+  "transcript_identifier_at_start": "26e0c650-179d-40b4-b42d-301b93d32fe5",
+  "token_usage": {
+    "input_tokens": 40,
+    "cache_creation_tokens": 97392,
+    "cache_read_tokens": 1727542,
+    "output_tokens": 26836,
+    "api_call_count": 32
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T20:39:18.717874Z",
+    "agent_lines": 257,
+    "human_added": 703,
+    "human_modified": 516,
+    "human_removed": 0,
+    "total_committed": 1476,
+    "agent_percentage": 17.411924119241192
+  },
+  "transcript_path": ".claude/projects/-Users-user-github-luna-the-dog/e8722922-6d93-4853-a071-e17263d5cb82.jsonl"
+}

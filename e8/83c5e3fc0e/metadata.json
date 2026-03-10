@@ -3,7 +3,7 @@
   "checkpoint_id": "e883c5e3fc0e",
   "strategy": "manual-commit",
   "branch": "002-dev-environment",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     ".env.dev.example",
     ".env.example",
@@ -12,6 +12,8 @@
     "CLAUDE.md",
     "backend/app/main.py",
     "backend/tests/conftest.py",
+    "backend/tests/unit/test_us1_migrations.py",
+    "docker-compose.dev.yml",
     "specs/002-dev-environment/tasks.md"
   ],
   "sessions": [
@@ -28,13 +30,20 @@
       "context": "/e8/83c5e3fc0e/1/context.md",
       "content_hash": "/e8/83c5e3fc0e/1/content_hash.txt",
       "prompt": "/e8/83c5e3fc0e/1/prompt.txt"
+    },
+    {
+      "metadata": "/e8/83c5e3fc0e/2/metadata.json",
+      "transcript": "/e8/83c5e3fc0e/2/full.jsonl",
+      "context": "/e8/83c5e3fc0e/2/context.md",
+      "content_hash": "/e8/83c5e3fc0e/2/content_hash.txt",
+      "prompt": "/e8/83c5e3fc0e/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 66,
-    "cache_creation_tokens": 128751,
-    "cache_read_tokens": 2357090,
-    "output_tokens": 32817,
-    "api_call_count": 48
+    "input_tokens": 99,
+    "cache_creation_tokens": 179898,
+    "cache_read_tokens": 3913416,
+    "output_tokens": 46507,
+    "api_call_count": 80
   }
 }

@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "e883c5e3fc0e",
+  "session_id": "37ef925c-d694-48ca-a04d-c735ebd9e080",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T20:39:13.419425Z",
+  "branch": "002-dev-environment",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/tests/unit/test_us1_migrations.py",
+    "docker-compose.dev.yml",
+    "specs/002-dev-environment/tasks.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "7ba5919b76b5",
+  "transcript_identifier_at_start": "573c6004-e894-442d-ae22-bbd1b16a94fd",
+  "token_usage": {
+    "input_tokens": 33,
+    "cache_creation_tokens": 51147,
+    "cache_read_tokens": 1556326,
+    "output_tokens": 13690,
+    "api_call_count": 32
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T20:39:13.276525Z",
+    "agent_lines": 53,
+    "human_added": 1241,
+    "human_modified": 182,
+    "human_removed": 0,
+    "total_committed": 1476,
+    "agent_percentage": 3.590785907859079
+  },
+  "transcript_path": ".claude/projects/-Users-user-github-luna-the-dog/37ef925c-d694-48ca-a04d-c735ebd9e080.jsonl"
+}

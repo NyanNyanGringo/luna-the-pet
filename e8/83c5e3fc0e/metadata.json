@@ -3,13 +3,14 @@
   "checkpoint_id": "e883c5e3fc0e",
   "strategy": "manual-commit",
   "branch": "002-dev-environment",
-  "checkpoints_count": 4,
+  "checkpoints_count": 8,
   "files_touched": [
     ".env.dev.example",
     ".env.example",
     ".env.prod.example",
     ".gitignore",
     "CLAUDE.md",
+    "README.md",
     "backend/app/config.py",
     "backend/app/main.py",
     "backend/tests/conftest.py",
@@ -46,13 +47,20 @@
       "context": "/e8/83c5e3fc0e/3/context.md",
       "content_hash": "/e8/83c5e3fc0e/3/content_hash.txt",
       "prompt": "/e8/83c5e3fc0e/3/prompt.txt"
+    },
+    {
+      "metadata": "/e8/83c5e3fc0e/4/metadata.json",
+      "transcript": "/e8/83c5e3fc0e/4/full.jsonl",
+      "context": "/e8/83c5e3fc0e/4/context.md",
+      "content_hash": "/e8/83c5e3fc0e/4/content_hash.txt",
+      "prompt": "/e8/83c5e3fc0e/4/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 119,
-    "cache_creation_tokens": 213660,
-    "cache_read_tokens": 4596768,
-    "output_tokens": 52004,
-    "api_call_count": 99
+    "input_tokens": 154,
+    "cache_creation_tokens": 270837,
+    "cache_read_tokens": 5286591,
+    "output_tokens": 63085,
+    "api_call_count": 120
   }
 }

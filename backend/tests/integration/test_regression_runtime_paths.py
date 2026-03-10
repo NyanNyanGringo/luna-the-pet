@@ -1,7 +1,7 @@
 """Регрессионные тесты runtime-путей запуска backend.
 
 Проверяет три инварианта:
-1) Settings использует только корневой `.env` проекта.
+1) Settings выбирает env-файл в корне по правилу `.env.{APP_ENV}` с fallback `.env`.
 2) локальный `backend/.env` игнорируется.
 3) `import app.main` работает при запуске из каталога backend.
 """
@@ -47,16 +47,53 @@ def _build_subprocess_environment() -> dict[str, str]:
     return subprocess_environment
 
 
+def _expected_root_env_file_path(app_env: str) -> str | None:
+    """Возвращает ожидаемый env-файл в корне по контракту 002-dev-environment."""
+    env_specific_file_path = PROJECT_ROOT_DIRECTORY / f".env.{app_env}"
+    if env_specific_file_path.is_file():
+        return str(env_specific_file_path)
+    if ROOT_ENV_FILE_PATH.is_file():
+        return str(ROOT_ENV_FILE_PATH)
+    return None
+
+
 def test_settings_uses_only_single_root_env_file_path() -> None:
-    """Settings должен ссылаться только на корневой .env проекта."""
+    """Settings выбирает env-файл динамически.
+
+    Контракт: model_config не должен фиксировать абсолютный путь env-файла.
+    """
     settings_module = importlib.import_module("app.config")
     settings_class = settings_module.Settings
 
-    assert settings_class.model_config["env_file"] == str(ROOT_ENV_FILE_PATH)
+    assert settings_class.model_config["env_file"] is None
+
+    resolve_env_file_script_text = (
+        "from app.config import _resolve_env_file; print(_resolve_env_file())"
+    )
+    base_subprocess_environment = _build_subprocess_environment()
+
+    for app_env in ("dev", "prod"):
+        subprocess_environment = base_subprocess_environment.copy()
+        subprocess_environment["APP_ENV"] = app_env
+        result = _run_python_script(
+            resolve_env_file_script_text,
+            BACKEND_WORKING_DIRECTORY,
+            subprocess_environment,
+        )
+
+        assert result.returncode == 0, result.stderr
+        actual_env_file_path = result.stdout.strip()
+        normalized_actual_env_file_path = (
+            None if actual_env_file_path == "None" else actual_env_file_path
+        )
+        expected_root_env_file_path = _expected_root_env_file_path(app_env)
+
+        assert normalized_actual_env_file_path == expected_root_env_file_path
+        assert normalized_actual_env_file_path != str(BACKEND_ENV_FILE_PATH)
 
 
 def test_settings_loads_root_env_when_cwd_is_backend() -> None:
-    """Settings должен загружаться из корневого .env при запуске из backend."""
+    """Settings должен загружаться из корневых env-файлов при запуске из backend."""
     subprocess_environment = _build_subprocess_environment()
     result = _run_python_script(
         "from app.config import Settings; Settings()",
@@ -78,7 +115,7 @@ def test_import_app_main_works_without_backend_package_in_sys_path() -> None:
 
 
 def test_settings_ignores_backend_env_when_root_env_exists() -> None:
-    """При наличии backend/.env должен использоваться только корневой .env."""
+    """При наличии backend/.env должны использоваться только корневые env-файлы."""
     fake_backend_token = "backend-local-env-must-be-ignored"
     backend_env_content = "\n".join(
         [

@@ -17,6 +17,7 @@
 """
 
 import datetime
+from collections.abc import Iterator
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -129,6 +130,17 @@ async def _create_active_medication(
     session.add(medication)
     await session.flush()
     return medication
+
+
+@pytest.fixture
+def stable_handle_tool_call_timezone() -> Iterator[None]:
+    """Стабилизирует таймзону в тестах handle_tool_call без обращения к БД."""
+    with patch(
+        "backend.app.agent.tool_handlers._resolve_family_timezone",
+        new_callable=AsyncMock,
+        return_value="UTC",
+    ):
+        yield
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -392,6 +404,7 @@ class TestToolDefinitions:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+@pytest.mark.usefixtures("stable_handle_tool_call_timezone")
 class TestToolHandlers:
     """Тесты маршрутизации и выполнения вызовов инструментов."""
 
@@ -1840,6 +1853,7 @@ class TestWhisperTranscription:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+@pytest.mark.usefixtures("stable_handle_tool_call_timezone")
 class TestEmergencyTools:
     """Тесты инструментов экстренного профиля в tools.py и tool_handlers.py."""
 

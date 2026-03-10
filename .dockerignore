@@ -3,6 +3,8 @@
 .specify/
 .entire/
 .claude/
+Dockerfile*
+.dockerignore
 specs/
 node_modules/
 __pycache__/

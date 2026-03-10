@@ -2,15 +2,16 @@
 Корневые фикстуры тестового окружения Luna the Dog.
 
 Предоставляет:
-- async_engine (session): PostgreSQL контейнер, возвращает AsyncEngine
+- async_engine (session): PostgreSQL (testcontainers или TEST_DATABASE_URL)
 - tables (session): создание всех таблиц через metadata.create_all
 - db_session (function): AsyncSession с откатом после каждого теста
 
-Требования:
-- Docker должен быть запущен для testcontainers
-- Все модели должны быть импортированы в backend.app.db.models.__init__
+Режимы работы:
+- TEST_DATABASE_URL задан → используется внешний PostgreSQL (без Docker)
+- TEST_DATABASE_URL не задан → testcontainers поднимает PostgreSQL в Docker
 """
 
+import os
 from collections.abc import AsyncGenerator
 
 import pytest
@@ -19,16 +20,36 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from testcontainers.postgres import PostgresContainer
 
 
+def _get_async_container_url(
+    postgres_container: PostgresContainer | None,
+) -> str:
+    """Возвращает asyncpg URL testcontainer или поднимает понятную ошибку."""
+    if postgres_container is None:
+        raise RuntimeError(
+            "postgres_container недоступен без Docker. "
+            "Укажите TEST_DATABASE_URL или запустите testcontainers."
+        )
+
+    sync_url = postgres_container.get_connection_url()
+    return sync_url.replace("postgresql+psycopg2://", "postgresql+asyncpg://")
+
+
 @pytest.fixture(scope="session")
-def postgres_container() -> PostgresContainer:
+def postgres_container() -> PostgresContainer | None:
     """Запускает PostgreSQL 16 контейнер на время всей тестовой сессии.
 
+    Если задана TEST_DATABASE_URL — контейнер не создаётся (возвращает None).
+
     Возвращает:
-        PostgresContainer: экземпляр запущенного контейнера
+        PostgresContainer | None: экземпляр контейнера или None
 
     Побочные эффекты:
         Контейнер останавливается автоматически по завершении сессии.
     """
+    if os.environ.get("TEST_DATABASE_URL"):
+        yield None
+        return
+
     container = PostgresContainer(
         image="postgres:16",
         username="test_user",
@@ -42,24 +63,25 @@ def postgres_container() -> PostgresContainer:
 
 @pytest.fixture(scope="session")
 def async_engine(
-    postgres_container: PostgresContainer,
+    postgres_container: PostgresContainer | None,
 ) -> AsyncEngine:
-    """Создаёт async engine (asyncpg) для тестовой БД.
+    """Создаёт async engine для тестовой БД.
+
+    Если TEST_DATABASE_URL задан — используется напрямую.
+    Иначе — берёт URL из testcontainers.
 
     Аргументы:
-        postgres_container: запущенный PostgreSQL контейнер
+        postgres_container: запущенный контейнер или None
 
     Возвращает:
         AsyncEngine: SQLAlchemy async engine, подключённый к тестовому PostgreSQL
-
-    Побочные эффекты:
-        Engine закрывается вместе с контейнером по завершении сессии.
     """
-    # testcontainers отдаёт psycopg2-формат URL, заменяем на asyncpg
-    sync_url = postgres_container.get_connection_url()
-    async_url = sync_url.replace("postgresql+psycopg2://", "postgresql+asyncpg://")
-    engine = create_async_engine(async_url, echo=False)
-    return engine
+    test_url = os.environ.get("TEST_DATABASE_URL")
+    if test_url:
+        return create_async_engine(test_url, echo=False)
+
+    async_url = _get_async_container_url(postgres_container)
+    return create_async_engine(async_url, echo=False)
 
 
 @pytest.fixture(scope="session")
@@ -115,4 +137,5 @@ async def db_session(
         yield session
 
         await session.close()
-        await transaction.rollback()
+        if transaction.is_active:
+            await transaction.rollback()

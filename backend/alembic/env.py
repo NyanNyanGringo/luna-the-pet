@@ -18,10 +18,21 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 # Добавляем корень репозитория в sys.path для импортов backend.app.*
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-# Импорт всех моделей для регистрации в Base.metadata
-import backend.app.db.models  # noqa: F401
-from backend.app.config import Settings
-from backend.app.db.base import Base
+
+def _load_settings_and_base() -> tuple[type, type]:
+    """Импортирует Settings/Base для dev и prod layout контейнеров."""
+    try:
+        import backend.app.db.models  # noqa: F401
+        from backend.app.config import Settings as ImportedSettings
+        from backend.app.db.base import Base as ImportedBase
+    except ModuleNotFoundError:
+        import app.db.models  # noqa: F401
+        from app.config import Settings as ImportedSettings
+        from app.db.base import Base as ImportedBase
+    return ImportedSettings, ImportedBase
+
+
+Settings, Base = _load_settings_and_base()
 
 config = context.config
 

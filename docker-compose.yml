@@ -1,34 +1,42 @@
-# Локальная и продакшн-конфигурация: приложение + PostgreSQL.
-# Переменные окружения берутся из .env (см. .env.example).
+# Prod-конфигурация: webhook + PostgreSQL + авто-миграции.
+# Переменные окружения берутся из .env.prod.
 
 services:
   app:
     build: .
     ports:
       - "8000:8000"
-    env_file: .env
+    env_file: .env.prod
     volumes:
       - media_data:/data/uploads
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   postgres:
     image: postgres:16
+    env_file: .env.prod
     ports:
       - "5433:5432"
     environment:
       POSTGRES_USER: luna
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: luna_db
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: pg_isready -U luna
+      test: ["CMD-SHELL", "pg_isready -U luna -d luna_db"]
       interval: 5s
       retries: 5
     restart: unless-stopped
+
+  migrate:
+    build: .
+    env_file: .env.prod
+    command: ["alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pg_data:

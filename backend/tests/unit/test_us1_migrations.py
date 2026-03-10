@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import ast
+import asyncio
 import os
 import re
 import subprocess
 import uuid
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import inspect
 from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import create_async_engine
 from testcontainers.postgres import PostgresContainer
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -133,27 +137,22 @@ def _drop_database(admin_database_url: str, database_name: str) -> None:
 
 def _table_exists(database_url: str, table_name: str) -> bool:
     """Проверяет наличие таблицы в public-схеме целевой БД."""
-    database_name = make_url(database_url).database or "postgres"
-    output = _run_postgres_cli(
-        [
-            "psql",
-            "-d",
-            database_name,
-            "-v",
-            f"table_name={table_name}",
-            "-tAc",
-            (
-                "SELECT EXISTS ("
-                " SELECT 1"
-                " FROM information_schema.tables"
-                " WHERE table_schema = 'public'"
-                " AND table_name = :'table_name'"
-                ")"
-            ),
-        ],
-        database_url,
-    )
-    return output == "t"
+    return asyncio.run(_read_table_exists(database_url, table_name))
+
+
+async def _read_table_exists(database_url: str, table_name: str) -> bool:
+    """Проверяет наличие таблицы через async engine и SQLAlchemy inspector."""
+    database_engine = create_async_engine(database_url)
+    try:
+        async with database_engine.connect() as database_connection:
+            return await database_connection.run_sync(
+                lambda sync_connection: inspect(sync_connection).has_table(
+                    table_name,
+                    schema="public",
+                )
+            )
+    finally:
+        await database_engine.dispose()
 
 
 def _get_alembic_version(database_url: str) -> str:
@@ -240,10 +239,16 @@ class TestUS1MigrationRuntimeRoundtrip:
 
     def test_upgrade_downgrade_upgrade_roundtrip(
         self,
-        postgres_container: PostgresContainer,
+        postgres_container: PostgresContainer | None,
         monkeypatch,
     ) -> None:
         """Проверяет воспроизводимую цепочку base->phase2->us1->phase2->us1."""
+        if postgres_container is None:
+            pytest.skip(
+                "Runtime roundtrip миграций требует testcontainer URL и пропускается "
+                "в режиме TEST_DATABASE_URL."
+            )
+
         container_database_name = make_url(
             postgres_container.get_connection_url()
         ).database

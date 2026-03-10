@@ -6,18 +6,20 @@
 а затем очищает их, чтобы тесты конфигурации корректно проверяли
 отсутствие обязательных переменных.
 
-Также блокирует чтение .env файла во время тестов через патч model_config,
-чтобы реальный .env проекта не влиял на результаты тестов.
+Также блокирует чтение .env файла во время тестов через патч model_config
+и _resolve_env_file, чтобы реальный .env проекта не влиял на результаты тестов.
 """
 
 import os
 
 import pytest
+from backend.app import config as config_module
 from backend.app.config import Settings
 from pydantic_settings import SettingsConfigDict
 
 # Минимальные значения для импорта session.py (Settings на уровне модуля)
 _SESSION_ENV_VARIABLES = {
+    "APP_ENV": "dev",
     "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test",
     "TELEGRAM_BOT_TOKEN": "000000000:test-token-for-session-import",
     "OPENAI_API_KEY": "sk-test-session-import-key",
@@ -26,6 +28,7 @@ _SESSION_ENV_VARIABLES = {
 # Опциональные переменные, которые должны быть очищены в каждом тесте —
 # предотвращает утечку значений из .env или системного окружения
 _OPTIONAL_ENV_VARIABLES = [
+    "APP_ENV",
     "OPENAI_OAUTH_CLIENT_ID",
     "OAUTH_ENCRYPTION_KEY",
     "JWT_SECRET",
@@ -54,14 +57,15 @@ def _isolate_settings_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "model_config",
         SettingsConfigDict(env_file=None, env_file_encoding="utf-8", extra="ignore"),
     )
-
-    # Устанавливаем обязательные переменные — они нужны всем модулям
-    for variable_name, variable_value in _SESSION_ENV_VARIABLES.items():
-        monkeypatch.setenv(variable_name, variable_value)
+    monkeypatch.setattr(config_module, "_resolve_env_file", lambda: None)
 
     # Очищаем опциональные переменные — они не должны утекать из .env
     for variable_name in _OPTIONAL_ENV_VARIABLES:
         monkeypatch.delenv(variable_name, raising=False)
+
+    # Устанавливаем обязательные переменные — они нужны всем модулям
+    for variable_name, variable_value in _SESSION_ENV_VARIABLES.items():
+        monkeypatch.setenv(variable_name, variable_value)
 
 
 def _ensure_session_env_and_preimport() -> None:
@@ -76,9 +80,11 @@ def _ensure_session_env_and_preimport() -> None:
         Устанавливает DATABASE_URL, TELEGRAM_BOT_TOKEN, OPENAI_API_KEY
         в os.environ и импортирует session.py, deps.py, create.py.
     """
+    for variable_name in _OPTIONAL_ENV_VARIABLES:
+        os.environ.pop(variable_name, None)
+
     for variable_name, variable_value in _SESSION_ENV_VARIABLES.items():
-        if variable_name not in os.environ:
-            os.environ[variable_name] = variable_value
+        os.environ[variable_name] = variable_value
 
     # Принудительно импортируем модули с module-level Settings(),
     # чтобы они инициализировались до очистки окружения фикстурой

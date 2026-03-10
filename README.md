@@ -3,9 +3,9 @@
 AI-ассистент по уходу за питомцами для всей семьи.
 Telegram-бот с голосовым вводом, AI-агент на базе OpenAI GPT с function calling.
 
-> **Статус**: MVP (US1) — запись данных о питомце голосом и текстом через Telegram
+> **Статус**: MVP — запись данных о питомце голосом и текстом через Telegram
 
-## Что умеет сейчас
+## Что умеет
 
 - **Голосовой и текстовый ввод** — отправьте боту «Луна весит 28 кг» или голосовое сообщение, агент извлечёт данные и сохранит в БД
 - **AI-агент** — OpenAI GPT с function calling: понимает естественный язык, ведёт контекст диалога, вызывает нужные сервисы
@@ -34,95 +34,122 @@ Telegram-бот с голосовым вводом, AI-агент на базе 
 | Backend | Python 3.11+, FastAPI, aiogram 3.x, SQLAlchemy 2.x async |
 | AI | OpenAI GPT (function calling), Whisper (голосовая транскрипция) |
 | База данных | PostgreSQL 16, Alembic (миграции) |
-| Инфраструктура | Docker Compose |
+| Инфраструктура | Docker Compose (dev + prod) |
+
+## Режимы работы
+
+Приложение поддерживает два режима, управляемых переменной `APP_ENV`:
+
+| | Dev (`APP_ENV=dev`) | Prod (`APP_ENV=prod`) |
+|---|---|---|
+| Получение сообщений | Polling (без ngrok) | Webhook |
+| Уровень логирования | DEBUG | INFO |
+| Docker | Обязателен | Обязателен |
+| WEBHOOK_URL | Игнорируется (даже если задан) | Обязателен |
+| Env-файл | `.env.dev` | `.env.prod` |
 
 ## Требования
 
 - Docker + Docker Compose
-- Telegram Bot Token (через [@BotFather](https://t.me/BotFather))
+- Telegram Bot Token (dev/prod боты через [@BotFather](https://t.me/BotFather))
 - OpenAI API Key ([platform.openai.com](https://platform.openai.com))
 
-Для локальной разработки без Docker дополнительно:
-
-- Python 3.11+
-- PostgreSQL 16
-- ffmpeg (для обработки голосовых сообщений)
+Для локального запуска `pytest`/`pre-commit` дополнительно нужен Python 3.11+.
 
 ## Быстрый старт
 
-### Docker Compose (продакшн / полный запуск)
+### DEV (Docker-only, polling + hot reload + foreground логи)
 
 ```bash
 git clone https://github.com/user/luna-the-dog.git
 cd luna-the-dog
-cp .env.example .env
-# Заполнить .env (см. раздел «Переменные окружения»)
+
+cp .env.dev.example .env.dev
+# Заполнить .env.dev (минимум: TELEGRAM_BOT_TOKEN, OPENAI_API_KEY)
+
+docker compose -f docker-compose.dev.yml up
+```
+
+`migrate` запускается автоматически перед `app`.
+Логи `postgres` и `app` идут в текущий терминал; hot reload включён через `--reload`.
+Даже если в `.env.dev` случайно задан `WEBHOOK_URL`, в dev-режиме используется polling.
+В `docker-compose.dev.yml` `DATABASE_URL` принудительно направляется на `postgres` внутри compose-сети.
+
+Опциональный фоновый запуск dev:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml logs -f app
+```
+
+### PROD (Docker-only, webhook)
+
+```bash
+cp .env.prod.example .env.prod
+# Заполнить .env.prod: TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, WEBHOOK_URL, WEBHOOK_SECRET, ...
 
 docker compose up -d
-docker compose exec app alembic upgrade head
 ```
 
-Для работы webhook нужен публичный URL. Для локального тестирования — ngrok:
+`migrate` запускается автоматически перед `app`, ручной шаг `alembic upgrade head` не нужен.
+Для работы webhook нужен публичный URL (домен или туннель).
 
-```bash
-ngrok http 8000
-# Скопировать HTTPS-URL в .env → WEBHOOK_URL=https://xxx.ngrok-free.app/webhook
-docker compose restart app
-```
+## Файлы конфигурации
 
-### Локальная разработка
-
-```bash
-# PostgreSQL через Docker
-docker compose up -d postgres
-
-# Backend
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-
-# Миграции
-alembic upgrade head
-
-# Запуск
-uvicorn backend.app.main:app --reload
-```
-
-> **Примечание**: сейчас бот работает только через webhook. Для локальной разработки нужен туннель (ngrok, cloudflared). Режим polling (`DEBUG=true` без `WEBHOOK_URL`) планируется.
+| Файл | Назначение |
+|------|------------|
+| `.env.dev.example` | Шаблон для dev-окружения (в git) |
+| `.env.prod.example` | Шаблон для prod-окружения (в git) |
+| `.env.example` | Legacy fallback-шаблон (deprecated для запуска) |
+| `.env.dev` | Реальная dev-конфигурация (gitignored) |
+| `.env.prod` | Реальная prod-конфигурация (gitignored) |
 
 ## Переменные окружения
 
-Скопируйте `.env.example` → `.env` и заполните:
-
-| Переменная | Обязательна | Описание |
-|---|---|---|
-| `TELEGRAM_BOT_TOKEN` | да | Токен бота от @BotFather |
-| `OPENAI_API_KEY` | да | API-ключ OpenAI |
-| `DATABASE_URL` | да | Строка подключения PostgreSQL (задана по умолчанию для Docker) |
-| `POSTGRES_PASSWORD` | да | Пароль PostgreSQL (задан по умолчанию для Docker) |
-| `WEBHOOK_URL` | да* | URL вебхука, напр. `https://example.com/webhook` |
-| `WEBHOOK_SECRET` | да* | Секрет верификации вебхука |
-| `JWT_SECRET` | нет | Секрет JWT (для будущей веб-панели) |
-| `OPENAI_OAUTH_CLIENT_ID` | нет | OAuth Client ID для подключения через `/connectai` |
-| `OAUTH_ENCRYPTION_KEY` | нет | Fernet-ключ для шифрования OAuth-токенов |
-| `MEDIA_DIR` | нет | Путь к загрузкам (по умолчанию `/data/uploads`) |
-| `DEBUG` | нет | Режим отладки (по умолчанию `false`) |
-
-\* Обязательны при работе через webhook. При будущем режиме polling — не нужны.
+| Переменная | Dev | Prod | Описание |
+|---|---|---|---|
+| `APP_ENV` | `dev` | `prod` | Режим работы (по умолчанию `dev`) |
+| `TELEGRAM_BOT_TOKEN` | да | да | Токен бота от @BotFather |
+| `OPENAI_API_KEY` | да | да | API-ключ OpenAI |
+| `DATABASE_URL` | да | да | Строка подключения PostgreSQL |
+| `POSTGRES_PASSWORD` | да | да | Пароль PostgreSQL |
+| `WEBHOOK_URL` | — | да | URL вебхука, напр. `https://example.com/webhook` |
+| `WEBHOOK_SECRET` | — | да | Секрет верификации вебхука |
+| `JWT_SECRET` | — | рек. | Секрет JWT (для будущей веб-панели) |
+| `DEBUG` | `true` | `false` | Режим отладки |
+| `MEDIA_DIR` | `./data/uploads` | `/data/uploads` | Путь к загрузкам |
+| `OPENAI_OAUTH_CLIENT_ID` | — | — | OAuth Client ID для `/connectai` |
+| `OAUTH_ENCRYPTION_KEY` | — | — | Fernet-ключ для шифрования OAuth-токенов |
 
 ## Команды разработки
 
 | Команда | Описание |
 |---------|----------|
-| `uvicorn backend.app.main:app --reload` | Dev-сервер backend |
-| `alembic upgrade head` | Применить миграции |
-| `alembic revision --autogenerate -m "..."` | Новая миграция |
-| `backend/.venv/bin/pytest backend/tests` | Запуск тестов |
+| `docker compose -f docker-compose.dev.yml up` | Dev (foreground, polling, hot reload) |
+| `docker compose -f docker-compose.dev.yml up -d` | Dev в фоне |
+| `docker compose -f docker-compose.dev.yml logs -f app` | Логи app в dev после detached-запуска |
+| `docker compose up -d` | Prod (webhook) |
+| `docker compose logs -f app` | Логи app в prod |
+| `backend/.venv/bin/alembic -c backend/alembic.ini revision --autogenerate -m "..."` | Новая миграция |
+| `backend/.venv/bin/pytest backend/tests/unit/ -v` | Unit-тесты |
+| `backend/.venv/bin/pytest backend/tests/ -v` | Все тесты (нужен Docker для testcontainers) |
 | `backend/.venv/bin/pre-commit run --all-files` | Полная проверка качества |
 | `ruff check . --fix` | Линтер с автофиксом |
 | `ruff format .` | Форматирование |
-| `docker compose up -d` | Запуск через Docker |
+
+## Тестирование
+
+```bash
+# Unit-тесты
+backend/.venv/bin/pytest backend/tests/unit/ -v
+
+# Все тесты с testcontainers (нужен Docker)
+backend/.venv/bin/pytest backend/tests/ -v
+
+# Integration-тесты с внешним PostgreSQL
+TEST_DATABASE_URL=postgresql+asyncpg://luna:password@localhost:5432/luna_dev_db \
+  backend/.venv/bin/pytest backend/tests/ -v
+```
 
 ## Качество кода
 
@@ -151,16 +178,21 @@ backend/
       handlers/     # Telegram: start, commands, message
       middlewares/  # DB-сессия, авторизация
     db/models/      # SQLAlchemy: family, pet, health, nutrition, audit
+    scheduler/      # APScheduler — напоминания
     services/       # Бизнес-логика: pet, health, nutrition, family, audit, openai_auth
+    config.py       # Настройки (APP_ENV, динамическая загрузка env-файлов)
+    main.py         # FastAPI lifespan (polling/webhook switching)
   alembic/          # Миграции БД
-  tests/            # unit-тесты
+  tests/            # unit + integration тесты
 
-frontend/           # Vue 3 SPA (заготовка, реализация в US5)
+frontend/           # Vue 3 SPA (заготовка)
+specs/              # Спецификации фич (speckit)
 ```
 
 ## Дорожная карта
 
-- [x] **US1** — Запись данных голосом/текстом (MVP)
+- [x] **001** — Запись данных голосом/текстом (MVP)
+- [x] **002** — Разграничение dev/prod режимов
 - [ ] **US2** — Управление питомцами (создание, просмотр, удаление)
 - [ ] **US3** — Напоминания и контроль выполнения
 - [ ] **US4** — Обработка фотографий (Vision AI)

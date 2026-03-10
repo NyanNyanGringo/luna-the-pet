@@ -1,10 +1,13 @@
 """
 Точка входа FastAPI-приложения: lifespan, webhook, health check.
 
-Управляет жизненным циклом бота (set/delete webhook) через lifespan
-и принимает обновления от Telegram через POST /webhook.
+Управляет жизненным циклом бота через lifespan:
+- dev: polling mode (asyncio.create_task + dp.start_polling)
+- prod: webhook mode (bot.set_webhook)
 """
 
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -20,26 +23,107 @@ logger = logging.getLogger(__name__)
 
 settings = Settings()
 
+_polling_task: asyncio.Task[None] | None = None
+
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     """Lifespan context manager: startup и shutdown логика приложения.
 
-    Побочные эффекты:
-        Startup: устанавливает webhook для Telegram бота (если настроен WEBHOOK_URL).
-        Shutdown: закрывает сессию бота.
+    Dev: polling mode с DEBUG-логированием.
+    Prod: webhook mode с INFO-логированием.
+    См. contracts/startup-behavior.md для матрицы поведения.
     """
-    await _setup_webhook()
-    yield
-    await _shutdown_bot()
+    _configure_logging()
+
+    if settings.APP_ENV == "dev":
+        await _start_polling()
+    else:
+        await _setup_webhook()
+
+    try:
+        yield
+    finally:
+        try:
+            if settings.APP_ENV == "dev":
+                await _stop_polling()
+        finally:
+            await bot.session.close()
+            logger.info("Сессия бота закрыта")
+
+
+def _configure_logging() -> None:
+    """Применяет уровень логирования к уже созданным логгерам."""
+    level = logging.DEBUG if settings.APP_ENV == "dev" else logging.INFO
+    root_logger = logging.getLogger()
+    application_logger = logging.getLogger("backend.app")
+    _apply_level_to_logger(root_logger, level)
+    _apply_level_to_logger(application_logger, level)
+    _apply_level_to_logger(logger, level)
+
+
+def _apply_level_to_logger(target_logger: logging.Logger, level: int) -> None:
+    """Обновляет уровень логгера и его handlers."""
+    target_logger.setLevel(level)
+    for logger_handler in target_logger.handlers:
+        logger_handler.setLevel(level)
+
+
+async def _start_polling() -> None:
+    """Запускает polling mode для dev-окружения.
+
+    Удаляет webhook, затем запускает dp.start_polling как фоновую задачу.
+    Если WEBHOOK_URL задан в dev — логирует предупреждение.
+    """
+    global _polling_task
+
+    if settings.WEBHOOK_URL:
+        logger.warning(
+            "WEBHOOK_URL задан в dev-режиме — игнорируется, используется polling"
+        )
+
+    await bot.delete_webhook(drop_pending_updates=True)
+    _polling_task = asyncio.create_task(
+        dp.start_polling(bot, handle_signals=False, close_bot_session=False)
+    )
+    logger.info("Polling запущен (APP_ENV=dev)")
+
+
+async def _stop_polling() -> None:
+    """Останавливает polling при завершении приложения."""
+    global _polling_task
+
+    if _polling_task is None:
+        logger.info("Polling не был запущен, остановка не требуется")
+        return
+
+    try:
+        await dp.stop_polling()
+    except RuntimeError as error:
+        if not _is_polling_not_started_error(error):
+            raise
+        logger.info("Polling уже был остановлен до shutdown")
+
+    if _polling_task is not None:
+        _polling_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await _polling_task
+        _polling_task = None
+
+    logger.info("Polling остановлен")
+
+
+def _is_polling_not_started_error(error: RuntimeError) -> bool:
+    """Проверяет ожидаемый сценарий остановки неинициализированного polling."""
+    error_message = str(error).lower()
+    return "not started" in error_message or "not running" in error_message
 
 
 async def _setup_webhook() -> None:
-    """Устанавливает webhook для Telegram бота.
+    """Устанавливает webhook для Telegram бота (prod mode).
 
     Побочные эффекты:
         Вызывает bot.set_webhook() с URL и secret_token из Settings.
-        Логирует результат установки.
     """
     if not settings.WEBHOOK_URL:
         logger.warning("WEBHOOK_URL не настроен — webhook не установлен")
@@ -53,16 +137,6 @@ async def _setup_webhook() -> None:
         logger.info("Webhook установлен: %s", settings.WEBHOOK_URL)
     except Exception:
         logger.exception("Не удалось установить webhook")
-
-
-async def _shutdown_bot() -> None:
-    """Закрывает сессию бота при остановке приложения.
-
-    Побочные эффекты:
-        Вызывает bot.session.close() для освобождения ресурсов.
-    """
-    await bot.session.close()
-    logger.info("Сессия бота закрыта")
 
 
 app = FastAPI(title="Luna the Dog", lifespan=lifespan)

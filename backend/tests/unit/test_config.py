@@ -10,8 +10,16 @@
 Все тесты используют monkeypatch для изоляции от реального окружения.
 """
 
+import importlib.util
+import sys
+from pathlib import Path
+from types import ModuleType
+from uuid import uuid4
+
+import backend.app.config as config_module
 import pytest
 from backend.app.config import Settings
+from pydantic import ValidationError
 
 # ── Минимальный набор обязательных переменных для создания Settings ──────────
 
@@ -281,3 +289,148 @@ class TestFormatValidation:
         """OPENAI_API_KEY не может быть пустой строкой."""
         settings = Settings()
         assert len(settings.OPENAI_API_KEY) > 0
+
+
+def _write_env_file(file_path: Path, values: dict[str, str]) -> None:
+    """Записывает .env файл из словаря ключ=значение."""
+    env_file_content = "\n".join(f"{name}={value}" for name, value in values.items())
+    file_path.write_text(env_file_content, encoding="utf-8")
+
+
+def _load_isolated_config_module(source_file_path: Path) -> ModuleType:
+    """Загружает backend.app.config как отдельный модуль с чистым кэшем."""
+    module_name = f"isolated_backend_app_config_{uuid4().hex}"
+    module_spec = importlib.util.spec_from_file_location(module_name, source_file_path)
+    if module_spec is None or module_spec.loader is None:
+        msg = "Не удалось создать module spec для backend.app.config"
+        raise RuntimeError(msg)
+
+    isolated_module = importlib.util.module_from_spec(module_spec)
+    sys.modules[module_name] = isolated_module
+    module_spec.loader.exec_module(isolated_module)
+    return isolated_module
+
+
+class TestEnvironmentContracts:
+    """Контракты окружений dev/prod для Settings."""
+
+    def test_prod_without_webhook_url_raises_validation_error(
+        self,
+        minimal_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """В APP_ENV=prod поле WEBHOOK_URL обязательно."""
+        monkeypatch.setenv("APP_ENV", "prod")
+        monkeypatch.delenv("WEBHOOK_URL", raising=False)
+
+        with pytest.raises(ValidationError, match="WEBHOOK_URL обязателен"):
+            Settings()
+
+    def test_dev_allows_missing_webhook_url(
+        self,
+        minimal_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """В APP_ENV=dev отсутствие WEBHOOK_URL допустимо."""
+        monkeypatch.setenv("APP_ENV", "dev")
+        monkeypatch.delenv("WEBHOOK_URL", raising=False)
+
+        settings = Settings()
+        assert settings.APP_ENV == "dev"
+        assert settings.WEBHOOK_URL is None
+
+    def test_prod_accepts_webhook_url_when_present(
+        self,
+        minimal_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """В APP_ENV=prod экземпляр Settings создаётся при заданном WEBHOOK_URL."""
+        webhook_url = "https://prod.example.com/webhook"
+        monkeypatch.setenv("APP_ENV", "prod")
+        monkeypatch.setenv("WEBHOOK_URL", webhook_url)
+
+        settings = Settings()
+        assert settings.APP_ENV == "prod"
+        assert webhook_url == settings.WEBHOOK_URL
+
+
+class TestEnvFileResolution:
+    """Тесты выбора env-файлов на основе APP_ENV."""
+
+    def test_settings_reloads_env_file_when_app_env_changes(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Settings должен выбирать .env файл заново при каждом создании."""
+        for variable_name in (*REQUIRED_ENV_VARIABLES, "WEBHOOK_URL", "APP_ENV"):
+            monkeypatch.delenv(variable_name, raising=False)
+
+        isolated_root = tmp_path / "isolated_project"
+        isolated_config_path = isolated_root / "backend" / "app" / "config.py"
+        isolated_config_path.parent.mkdir(parents=True)
+        source_file_path = Path(config_module.__file__)
+        isolated_config_path.write_text(
+            source_file_path.read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+
+        _write_env_file(
+            isolated_root / ".env.dev",
+            {
+                "DATABASE_URL": "postgresql+asyncpg://dev_user:dev_pass@localhost:5432/dev_db",
+                "TELEGRAM_BOT_TOKEN": "111111111:dev-token",
+                "OPENAI_API_KEY": "sk-dev-key",
+                "WEBHOOK_URL": "https://dev.example.com/webhook",
+            },
+        )
+        _write_env_file(
+            isolated_root / ".env.prod",
+            {
+                "DATABASE_URL": "postgresql+asyncpg://prod_user:prod_pass@localhost:5432/prod_db",
+                "TELEGRAM_BOT_TOKEN": "222222222:prod-token",
+                "OPENAI_API_KEY": "sk-prod-key",
+                "WEBHOOK_URL": "https://prod.example.com/webhook",
+            },
+        )
+
+        monkeypatch.setenv("APP_ENV", "dev")
+        isolated_module = _load_isolated_config_module(isolated_config_path)
+        dev_settings = isolated_module.Settings()
+        assert dev_settings.DATABASE_URL.endswith("/dev_db")
+
+        monkeypatch.setenv("APP_ENV", "prod")
+        prod_settings = isolated_module.Settings()
+        assert prod_settings.DATABASE_URL.endswith("/prod_db")
+
+    def test_settings_uses_dotenv_fallback_when_env_specific_file_missing(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """При отсутствии .env.{APP_ENV} используется fallback файл .env."""
+        for variable_name in (*REQUIRED_ENV_VARIABLES, "WEBHOOK_URL", "APP_ENV"):
+            monkeypatch.delenv(variable_name, raising=False)
+
+        isolated_root = tmp_path / "isolated_project"
+        isolated_config_path = isolated_root / "backend" / "app" / "config.py"
+        isolated_config_path.parent.mkdir(parents=True)
+        source_file_path = Path(config_module.__file__)
+        isolated_config_path.write_text(
+            source_file_path.read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+
+        _write_env_file(
+            isolated_root / ".env",
+            {
+                "DATABASE_URL": "postgresql+asyncpg://fallback:fallback@localhost:5432/fallback_db",
+                "TELEGRAM_BOT_TOKEN": "333333333:fallback-token",
+                "OPENAI_API_KEY": "sk-fallback-key",
+            },
+        )
+
+        monkeypatch.setenv("APP_ENV", "dev")
+        isolated_module = _load_isolated_config_module(isolated_config_path)
+        fallback_settings = isolated_module.Settings()
+        assert fallback_settings.DATABASE_URL.endswith("/fallback_db")

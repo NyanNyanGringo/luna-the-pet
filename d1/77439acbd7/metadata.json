@@ -7,17 +7,32 @@
   "files_touched": [
     ".env.dev.example",
     ".env.example",
+    ".env.prod.example",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "backend/alembic/versions/2026-03-12_3f2e1c4b8a9d_add_oauth_client_config_table.py",
     "backend/app/agent/brain.py",
     "backend/app/api/auth.py",
     "backend/app/bot/handlers/commands.py",
     "backend/app/bot/handlers/message.py",
     "backend/app/config.py",
+    "backend/app/db/models/__init__.py",
+    "backend/app/db/models/family.py",
     "backend/app/services/openai_auth_service.py",
     "backend/tests/unit/conftest.py",
     "backend/tests/unit/test_bot_framework.py",
     "backend/tests/unit/test_codex_oauth.py",
     "backend/tests/unit/test_config.py",
+    "backend/tests/unit/test_models.py",
     "backend/tests/unit/test_openai_auth.py",
+    "backend/tests/unit/test_us1_migrations.py",
+    "specs/004-codex-oauth/checklists/requirements.md",
+    "specs/004-codex-oauth/contracts/api.md",
+    "specs/004-codex-oauth/data-model.md",
+    "specs/004-codex-oauth/plan.md",
+    "specs/004-codex-oauth/quickstart.md",
+    "specs/004-codex-oauth/research.md",
+    "specs/004-codex-oauth/spec.md",
     "specs/004-codex-oauth/tasks.md"
   ],
   "sessions": [
@@ -34,13 +49,20 @@
       "context": "/d1/77439acbd7/1/context.md",
       "content_hash": "/d1/77439acbd7/1/content_hash.txt",
       "prompt": "/d1/77439acbd7/1/prompt.txt"
+    },
+    {
+      "metadata": "/d1/77439acbd7/2/metadata.json",
+      "transcript": "/d1/77439acbd7/2/full.jsonl",
+      "context": "/d1/77439acbd7/2/context.md",
+      "content_hash": "/d1/77439acbd7/2/content_hash.txt",
+      "prompt": "/d1/77439acbd7/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 2813,
-    "cache_creation_tokens": 394964,
-    "cache_read_tokens": 3217875,
-    "output_tokens": 29485,
-    "api_call_count": 55
+    "input_tokens": 2846,
+    "cache_creation_tokens": 446111,
+    "cache_read_tokens": 4774201,
+    "output_tokens": 43175,
+    "api_call_count": 87
   }
 }

@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "d177439acbd7",
+  "strategy": "manual-commit",
+  "branch": "wip/003-save-current-changes",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".env.example",
+    "backend/app/agent/brain.py",
+    "backend/app/api/auth.py",
+    "backend/app/bot/handlers/commands.py",
+    "backend/app/bot/handlers/message.py",
+    "backend/app/config.py",
+    "backend/app/services/openai_auth_service.py",
+    "backend/tests/unit/conftest.py",
+    "backend/tests/unit/test_bot_framework.py",
+    "backend/tests/unit/test_codex_oauth.py",
+    "backend/tests/unit/test_config.py",
+    "backend/tests/unit/test_openai_auth.py",
+    "specs/004-codex-oauth/tasks.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/d1/77439acbd7/0/metadata.json",
+      "transcript": "/d1/77439acbd7/0/full.jsonl",
+      "context": "/d1/77439acbd7/0/context.md",
+      "content_hash": "/d1/77439acbd7/0/content_hash.txt",
+      "prompt": "/d1/77439acbd7/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2786,
+    "cache_creation_tokens": 356045,
+    "cache_read_tokens": 2136100,
+    "output_tokens": 20115,
+    "api_call_count": 29
+  }
+}

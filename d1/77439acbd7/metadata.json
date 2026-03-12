@@ -3,8 +3,9 @@
   "checkpoint_id": "d177439acbd7",
   "strategy": "manual-commit",
   "branch": "wip/003-save-current-changes",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
+    ".env.dev.example",
     ".env.example",
     "backend/app/agent/brain.py",
     "backend/app/api/auth.py",
@@ -26,13 +27,20 @@
       "context": "/d1/77439acbd7/0/context.md",
       "content_hash": "/d1/77439acbd7/0/content_hash.txt",
       "prompt": "/d1/77439acbd7/0/prompt.txt"
+    },
+    {
+      "metadata": "/d1/77439acbd7/1/metadata.json",
+      "transcript": "/d1/77439acbd7/1/full.jsonl",
+      "context": "/d1/77439acbd7/1/context.md",
+      "content_hash": "/d1/77439acbd7/1/content_hash.txt",
+      "prompt": "/d1/77439acbd7/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 2786,
-    "cache_creation_tokens": 356045,
-    "cache_read_tokens": 2136100,
-    "output_tokens": 20115,
-    "api_call_count": 29
+    "input_tokens": 2813,
+    "cache_creation_tokens": 394964,
+    "cache_read_tokens": 3217875,
+    "output_tokens": 29485,
+    "api_call_count": 55
   }
 }

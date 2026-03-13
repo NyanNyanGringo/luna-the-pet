@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 _PET_SERVICE_FORBIDDEN_UPDATE_FIELDS = {
     "id",
-    "family_id",
+    "workspace_id",
     "created_by",
     "is_active",
     "created_at",
@@ -31,21 +31,21 @@ _PET_SERVICE_FORBIDDEN_UPDATE_FIELDS = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-async def get_family_pets(
+async def get_workspace_pets(
     session: AsyncSession,
-    family_id: int,
+    workspace_id: int,
 ) -> list[Pet]:
-    """Возвращает всех активных питомцев семьи.
+    """Возвращает всех активных питомцев workspace.
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
-        family_id: ID семьи
+        workspace_id: ID workspace
 
     Возвращает:
-        list[Pet]: список активных питомцев семьи (может быть пустым)
+        list[Pet]: список активных питомцев workspace (может быть пустым)
     """
     result = await session.execute(
-        select(Pet).where(Pet.family_id == family_id, Pet.is_active.is_(True))
+        select(Pet).where(Pet.workspace_id == workspace_id, Pet.is_active.is_(True))
     )
     return list(result.scalars().all())
 
@@ -69,14 +69,14 @@ async def get_pet_by_id(
 
 async def get_pet_by_name(
     session: AsyncSession,
-    family_id: int,
+    workspace_id: int,
     name: str,
 ) -> Pet | None:
-    """Ищет питомца по имени (case-insensitive) в указанной семье.
+    """Ищет питомца по имени (case-insensitive) в указанном workspace.
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
-        family_id: ID семьи
+        workspace_id: ID workspace
         name: имя питомца (без учёта регистра)
 
     Возвращает:
@@ -84,7 +84,7 @@ async def get_pet_by_name(
     """
     result = await session.execute(
         select(Pet).where(
-            Pet.family_id == family_id,
+            Pet.workspace_id == workspace_id,
             Pet.is_active.is_(True),
             func.lower(Pet.name) == name.lower(),
         )
@@ -94,23 +94,23 @@ async def get_pet_by_name(
 
 async def resolve_pet_from_text(
     session: AsyncSession,
-    family_id: int,
+    workspace_id: int,
     text: str,
 ) -> Pet | None:
     """Ищет имя питомца в произвольном тексте.
 
-    Загружает все имена активных питомцев семьи и проверяет,
+    Загружает все имена активных питомцев workspace и проверяет,
     встречается ли какое-либо из них в тексте (case-insensitive).
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
-        family_id: ID семьи
+        workspace_id: ID workspace
         text: произвольный текст для поиска имени питомца
 
     Возвращает:
         Pet | None: первый найденный питомец или None
     """
-    pets = await get_family_pets(session, family_id)
+    pets = await get_workspace_pets(session, workspace_id)
     return _find_pet_name_in_text(pets, text)
 
 
@@ -152,7 +152,7 @@ def _find_pet_name_in_text(pets: list[Pet], text: str) -> Pet | None:
 
 async def create_pet(
     session: AsyncSession,
-    family_id: int,
+    workspace_id: int,
     name: str,
     species: str,
     actor_id: int | None,
@@ -162,7 +162,7 @@ async def create_pet(
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
-        family_id: ID семьи
+        workspace_id: ID workspace
         name: имя питомца
         species: вид животного (dog/cat/other)
         actor_id: user-origin ID, от имени которого выполняется создание
@@ -179,7 +179,7 @@ async def create_pet(
     """
     created_by = _require_actor_id(actor_id)
     pet = Pet(
-        family_id=family_id,
+        workspace_id=workspace_id,
         name=name,
         species=species,
         created_by=created_by,
@@ -192,8 +192,9 @@ async def create_pet(
         pet_id=pet.id,
         action="create",
         actor_id=created_by,
+        workspace_id=workspace_id,
         diff_json=_build_create_diff(
-            family_id=family_id,
+            workspace_id=workspace_id,
             name=name,
             species=species,
             created_by=created_by,
@@ -202,10 +203,10 @@ async def create_pet(
     )
 
     logger.info(
-        "Создан питомец '%s' (вид=%s) в семье %d",
+        "Создан питомец '%s' (вид=%s) в workspace %d",
         name,
         species,
-        family_id,
+        workspace_id,
     )
     return pet
 
@@ -245,6 +246,7 @@ async def update_pet(
         pet_id=pet.id,
         action="update",
         actor_id=valid_actor_id,
+        workspace_id=pet.workspace_id,
         diff_json=_to_audit_diff(changed_fields),
     )
 
@@ -336,7 +338,7 @@ def _get_changed_fields(entity: object, fields: dict[str, object]) -> dict[str, 
 
 
 def _build_create_diff(
-    family_id: int,
+    workspace_id: int,
     name: str,
     species: str,
     created_by: int,
@@ -345,7 +347,7 @@ def _build_create_diff(
     """Собирает минимальный diff_json для audit create.
 
     Аргументы:
-        family_id: ID семьи питомца
+        workspace_id: ID workspace питомца
         name: имя питомца
         species: вид питомца
         created_by: actor_id, записанный в created_by
@@ -357,7 +359,7 @@ def _build_create_diff(
     create_diff = {
         "name": name,
         "species": species,
-        "family_id": family_id,
+        "workspace_id": workspace_id,
         "created_by": created_by,
     }
     create_diff.update(optional_fields)
@@ -395,6 +397,7 @@ async def _log_pet_change(
     pet_id: int,
     action: str,
     actor_id: int,
+    workspace_id: int,
     diff_json: dict[str, object],
 ) -> None:
     """Пишет запись в аудит по изменению питомца.
@@ -404,6 +407,7 @@ async def _log_pet_change(
         pet_id: ID питомца
         action: тип действия в аудите (create/update)
         actor_id: user-origin ID инициатора
+        workspace_id: ID workspace питомца
         diff_json: минимальный diff изменённых полей
     """
     await audit_service.log_change(
@@ -412,5 +416,6 @@ async def _log_pet_change(
         entity_id=pet_id,
         action=action,
         actor_id=actor_id,
+        workspace_id=workspace_id,
         diff_json=diff_json,
     )

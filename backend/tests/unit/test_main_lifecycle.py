@@ -125,6 +125,11 @@ class TestPollingLifecycle:
             patch.object(
                 main.dp, "start_polling", new=AsyncMock()
             ) as mock_start_polling,
+            patch.object(
+                main.dp,
+                "resolve_used_update_types",
+                return_value=["message"],
+            ),
             patch(
                 "backend.app.main.asyncio.create_task",
                 side_effect=fake_create_task,
@@ -138,6 +143,7 @@ class TestPollingLifecycle:
             main.bot,
             handle_signals=False,
             close_bot_session=False,
+            allowed_updates=["message"],
         )
         mock_create_task.assert_called_once()
         assert main._polling_task is fake_polling_task
@@ -157,6 +163,81 @@ class TestPollingLifecycle:
             new=AsyncMock(side_effect=RuntimeError("Polling is not started")),
         ):
             await main._stop_polling()
+
+
+class TestAllowedUpdates:
+    """Проверяет передачу allowed_updates при запуске polling и webhook."""
+
+    async def test_polling_passes_allowed_updates(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """_start_polling передаёт allowed_updates в dp.start_polling."""
+        monkeypatch.setattr(main.settings, "APP_ENV", "dev")
+        monkeypatch.setattr(main.settings, "WEBHOOK_URL", None)
+        monkeypatch.setattr(main, "_polling_task", None)
+
+        fake_polling_task = MagicMock()
+        started_polling_coroutines: list[Coroutine[None, None, None]] = []
+
+        def fake_create_task(
+            polling_coroutine: Coroutine[None, None, None],
+        ) -> MagicMock:
+            started_polling_coroutines.append(polling_coroutine)
+            return fake_polling_task
+
+        with (
+            patch.object(main.bot, "delete_webhook", new=AsyncMock()),
+            patch.object(
+                main.dp, "start_polling", new=AsyncMock()
+            ) as mock_start_polling,
+            patch.object(
+                main.dp,
+                "resolve_used_update_types",
+                return_value=["message", "callback_query"],
+            ),
+            patch(
+                "backend.app.main.asyncio.create_task",
+                side_effect=fake_create_task,
+            ),
+        ):
+            await main._start_polling()
+
+        # Проверяем, что start_polling вызван с allowed_updates
+        mock_start_polling.assert_called_once()
+        call_kwargs = mock_start_polling.call_args
+        assert "allowed_updates" in call_kwargs.kwargs, (
+            "dp.start_polling должен получать параметр allowed_updates"
+        )
+
+        for polling_coroutine in started_polling_coroutines:
+            polling_coroutine.close()
+
+    async def test_webhook_passes_allowed_updates(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """_setup_webhook передаёт allowed_updates в bot.set_webhook."""
+        monkeypatch.setattr(main.settings, "APP_ENV", "prod")
+        monkeypatch.setattr(main.settings, "WEBHOOK_URL", "https://example.com/webhook")
+        monkeypatch.setattr(main.settings, "WEBHOOK_SECRET", "test-secret")
+
+        with (
+            patch.object(main.bot, "set_webhook", new=AsyncMock()) as mock_set_webhook,
+            patch.object(
+                main.dp,
+                "resolve_used_update_types",
+                return_value=["message", "callback_query"],
+            ),
+        ):
+            await main._setup_webhook()
+
+        # Проверяем, что set_webhook вызван с allowed_updates
+        mock_set_webhook.assert_awaited_once()
+        call_kwargs = mock_set_webhook.call_args
+        assert "allowed_updates" in call_kwargs.kwargs, (
+            "bot.set_webhook должен получать параметр allowed_updates"
+        )
 
 
 class TestLoggingConfiguration:

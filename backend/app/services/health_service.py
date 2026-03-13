@@ -21,6 +21,7 @@ from backend.app.db.models.health import (
     Vaccination,
     WeightRecord,
 )
+from backend.app.db.models.pet import Pet
 from backend.app.services import audit_service
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -80,6 +81,7 @@ async def add_weight(
         session=session,
         entity_type="weight_record",
         entity_id=record.id,
+        pet_id=pet_id,
         action="create",
         actor_id=valid_recorded_by,
         diff_json={
@@ -192,6 +194,7 @@ async def add_vaccination(
         session=session,
         entity_type="vaccination",
         entity_id=vaccination.id,
+        pet_id=pet_id,
         action="create",
         actor_id=valid_recorded_by,
         diff_json=create_diff,
@@ -284,6 +287,7 @@ async def add_medical_record(
         session=session,
         entity_type="medical_record",
         entity_id=record.id,
+        pet_id=pet_id,
         action="create",
         actor_id=valid_recorded_by,
         diff_json=create_diff,
@@ -395,6 +399,7 @@ async def add_medication(
         session=session,
         entity_type="medication",
         entity_id=medication.id,
+        pet_id=pet_id,
         action="create",
         actor_id=valid_recorded_by,
         diff_json=create_diff,
@@ -469,6 +474,7 @@ async def deactivate_medication(
         session=session,
         entity_type="medication",
         entity_id=medication.id,
+        pet_id=medication.pet_id,
         action="close",
         actor_id=valid_actor_id,
         diff_json={
@@ -545,6 +551,7 @@ async def add_note(
         session=session,
         entity_type="note",
         entity_id=note.id,
+        pet_id=pet_id,
         action="create",
         actor_id=valid_recorded_by,
         diff_json={
@@ -660,6 +667,7 @@ async def _create_empty_emergency_profile(
         session=session,
         entity_type="emergency_profile",
         entity_id=profile.id,
+        pet_id=pet_id,
         action="create",
         actor_id=actor_id,
         diff_json={"pet_id": pet_id},
@@ -705,6 +713,7 @@ async def update_emergency_profile(
         session=session,
         entity_type="emergency_profile",
         entity_id=profile.id,
+        pet_id=pet_id,
         action="update",
         actor_id=valid_actor_id,
         diff_json=changed_fields,
@@ -871,6 +880,7 @@ async def _log_health_change(
     session: AsyncSession,
     entity_type: str,
     entity_id: int,
+    pet_id: int,
     action: str,
     actor_id: int,
     diff_json: dict[str, object],
@@ -881,18 +891,31 @@ async def _log_health_change(
         session: асинхронная сессия SQLAlchemy
         entity_type: тип сущности для ChangeLog
         entity_id: ID изменённой сущности
+        pet_id: ID питомца-владельца изменённой сущности
         action: тип действия (create/update/close)
         actor_id: ID инициатора изменения
         diff_json: минимальный diff изменения
     """
+    workspace_id = await _get_workspace_id_for_pet(session, pet_id)
     await audit_service.log_change(
         session=session,
         entity_type=entity_type,
         entity_id=entity_id,
         action=action,
         actor_id=actor_id,
+        workspace_id=workspace_id,
         diff_json=_to_audit_diff(diff_json),
     )
+
+
+async def _get_workspace_id_for_pet(session: AsyncSession, pet_id: int) -> int:
+    """Возвращает workspace_id питомца или бросает ValueError."""
+    workspace_id = await session.scalar(
+        select(Pet.workspace_id).where(Pet.id == pet_id),
+    )
+    if workspace_id is None:
+        raise ValueError(f"Питомец с id={pet_id} не найден")
+    return workspace_id
 
 
 def _to_audit_diff(fields: dict[str, object]) -> dict[str, object]:

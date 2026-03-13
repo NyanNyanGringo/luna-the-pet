@@ -1,23 +1,23 @@
 """
-Обработчики команд: /invite, /connectai и другие slash-команды.
+Обработчики команд: /connectai, /invite и другие slash-команды.
 
-Содержит логику генерации инвайт-кодов, подключения OpenAI OAuth
-и отображения существующих приглашений. Экспортирует commands_router (Router).
+Содержит логику подключения OpenAI OAuth и генерации invite-ссылок.
+Экспортирует commands_router (Router).
 """
 
 import logging
-from collections.abc import Sequence
 
-from aiogram import Router
+from aiogram import Bot, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.types import Message
-from backend.app.config import Settings
-from backend.app.db.models.family import FamilyInvite
-from backend.app.services.family_service import (
-    create_invite,
-    get_member,
-    list_invites,
+from backend.app.bot.handlers.constants import (
+    HELP_GROUP_TEXT,
+    INVITE_NO_ADMIN_TEXT,
+    INVITE_SUCCESS_TEMPLATE,
 )
+from backend.app.config import Settings
+from backend.app.db.models.workspace import Workspace, WorkspaceMember
 from backend.app.services.openai_auth_service import (
     build_authorize_url,
     generate_pkce_params,
@@ -28,85 +28,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 
-async def handle_invite(message: Message, session: AsyncSession) -> None:
-    """Обрабатывает команду /invite — генерирует или показывает инвайт-коды.
-
-    Если есть активные инвайты — показывает их.
-    Если активных нет — создаёт новый и отправляет код с информацией о сроке.
-
-    Аргументы:
-        message: входящее сообщение от пользователя
-        session: асинхронная сессия SQLAlchemy
-
-    Побочные эффекты:
-        Может создать новый FamilyInvite в БД.
-        Отправляет сообщение с кодом приглашения.
-    """
-    user_id = message.from_user.id if message.from_user else 0
-    member = await get_member(session, telegram_user_id=user_id)
-
-    if member is None:
-        await message.answer("Вы не зарегистрированы. Используйте /start.")
-        return
-
-    existing_invites = await list_invites(session, family_id=member.family_id)
-    active_invites = _filter_active_invites(existing_invites)
-
-    if active_invites:
-        response = _format_existing_invites(active_invites)
-        await message.answer(response)
-        return
-
-    new_invite = await create_invite(
-        session,
-        family_id=member.family_id,
-        created_by_id=member.id,
-    )
-    response = _format_new_invite(new_invite)
-    await message.answer(response)
-
-
-def _filter_active_invites(invites: Sequence[FamilyInvite]) -> list[FamilyInvite]:
-    """Отбирает инвайты со статусом 'active'.
-
-    Аргументы:
-        invites: список инвайтов (любого статуса)
-
-    Возвращает:
-        list: только активные инвайты
-    """
-    return [invite for invite in invites if invite.status == "active"]
-
-
-def _format_new_invite(invite: FamilyInvite) -> str:
-    """Форматирует сообщение о новом инвайте.
-
-    Аргументы:
-        invite: созданный FamilyInvite
-
-    Возвращает:
-        str: текст с кодом и информацией о сроке действия
-    """
-    return (
-        f"Код приглашения: {invite.invite_code}\nДействителен до: {invite.expires_at}"
-    )
-
-
-def _format_existing_invites(invites: Sequence[FamilyInvite]) -> str:
-    """Форматирует сообщение о существующих активных инвайтах.
-
-    Аргументы:
-        invites: список активных инвайтов
-
-    Возвращает:
-        str: текст со списком активных кодов
-    """
-    codes = [invite.invite_code for invite in invites]
-    codes_text = "\n".join(f"  {code}" for code in codes)
-    return f"Активные приглашения:\n{codes_text}"
-
-
-async def handle_connectai(message: Message, session: AsyncSession) -> None:
+async def handle_connectai(
+    message: Message,
+    session: AsyncSession,
+    workspace: Workspace,
+    member: WorkspaceMember,
+) -> None:
     """Обрабатывает /connectai — генерирует OAuth URL для подключения OpenAI.
 
     Проверяет наличие OPENAI_OAUTH_CLIENT_ID в конфиге. Если настроен —
@@ -120,13 +47,6 @@ async def handle_connectai(message: Message, session: AsyncSession) -> None:
     Побочные эффекты:
         Отправляет сообщение со ссылкой OAuth или сообщением об ошибке.
     """
-    user_id = message.from_user.id if message.from_user else 0
-    member = await get_member(session, telegram_user_id=user_id)
-
-    if member is None:
-        await message.answer("Вы не зарегистрированы. Используйте /start.")
-        return
-
     settings = Settings()
 
     if not settings.OPENAI_OAUTH_CLIENT_ID:
@@ -139,8 +59,8 @@ async def handle_connectai(message: Message, session: AsyncSession) -> None:
         message=message,
         client_id=client_id,
         redirect_uri=redirect_uri,
-        family_id=member.family_id,
-        member_id=member.id,
+        workspace_id=workspace.id,
+        member_id=member.telegram_user_id,
     )
 
 
@@ -162,7 +82,7 @@ async def _send_oauth_link(
     message: Message,
     client_id: str,
     redirect_uri: str,
-    family_id: int,
+    workspace_id: int,
     member_id: int,
 ) -> None:
     """Генерирует PKCE параметры и отправляет OAuth ссылку пользователю.
@@ -171,7 +91,7 @@ async def _send_oauth_link(
         message: сообщение для ответа
         client_id: гарантированно непустой OPENAI_OAUTH_CLIENT_ID
         redirect_uri: URL обратного вызова
-        family_id: ID семьи для последующего OAuth callback
+        workspace_id: ID workspace для последующего OAuth callback
         member_id: Telegram user ID инициатора /connectai
 
     Побочные эффекты:
@@ -182,7 +102,7 @@ async def _send_oauth_link(
     store_pkce_state_context(
         state=pkce_params["state"],
         code_verifier=pkce_params["code_verifier"],
-        family_id=family_id,
+        workspace_id=workspace_id,
         member_id=member_id,
     )
     authorize_url = build_authorize_url(
@@ -195,15 +115,60 @@ async def _send_oauth_link(
     await message.answer(response_text)
 
 
+async def handle_group_help(message: Message) -> None:
+    """Обрабатывает /help в группе — стандартная справка с командами.
+
+    Контракт (telegram-bot-commands.md#L73): /help работает в обоих контекстах.
+    В группе — стандартная справка без инструкции по созданию группы.
+
+    Аргументы:
+        message: входящее сообщение с командой /help
+
+    Побочные эффекты:
+        Отправляет HELP_GROUP_TEXT со списком доступных команд.
+    """
+    await message.answer(HELP_GROUP_TEXT)
+
+
+async def handle_invite(message: Message, bot: Bot) -> None:
+    """Обрабатывает /invite — создаёт пригласительную ссылку на группу.
+
+    Вызывает Telegram API для генерации invite-ссылки. Если бот не имеет
+    прав администратора, отправляет пользователю инструкцию.
+
+    Аргументы:
+        message: входящее сообщение с командой /invite
+        bot: экземпляр Bot для вызова Telegram API
+
+    Побочные эффекты:
+        Отправляет сообщение с invite-ссылкой или текстом ошибки.
+
+    Ошибки:
+        TelegramBadRequest: перехватывается, пользователь получает INVITE_NO_ADMIN_TEXT.
+    """
+    try:
+        invite_link = await bot.create_chat_invite_link(
+            message.chat.id, name="Luna Bot Invite"
+        )
+        response_text = INVITE_SUCCESS_TEMPLATE.format(link=invite_link.invite_link)
+        await message.answer(response_text)
+    except TelegramBadRequest:
+        logger.warning(
+            "Не удалось создать invite-ссылку для чата %s: нет прав", message.chat.id
+        )
+        await message.answer(INVITE_NO_ADMIN_TEXT)
+
+
 def create_commands_router() -> Router:
     """Создаёт Router с обработчиками команд.
 
     Возвращает:
-        Router: роутер с handler'ами /invite и /connectai
+        Router: роутер с handler'ами /connectai и /invite
     """
     router = Router(name="commands")
-    router.message.register(handle_invite, Command("invite"))
+    router.message.register(handle_group_help, Command("help"))
     router.message.register(handle_connectai, Command("connectai"))
+    router.message.register(handle_invite, Command("invite"))
     return router
 
 

@@ -2,7 +2,7 @@
 Модель питомца (Pet) с полным набором полей профиля.
 
 Поддерживает soft-delete через is_active (FR-007a).
-Связан с Family и FamilyMember (создатель и M2M через family_pet).
+Связан с Workspace (мультитенантная привязка).
 """
 
 from __future__ import annotations
@@ -11,7 +11,6 @@ import datetime
 from typing import TYPE_CHECKING
 
 from backend.app.db.base import Base
-from backend.app.db.models.family import family_pet
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -25,11 +24,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
-    from backend.app.db.models.family import Family, FamilyMember
+    from backend.app.db.models.workspace import Workspace
 
 
 class Pet(Base):
-    """Питомец семьи.
+    """Питомец workspace.
 
     Поля:
         id: автоинкрементный PK
@@ -44,13 +43,12 @@ class Pet(Base):
         vet_contact: контакт ветклиники (nullable)
         is_neutered: кастрирован/стерилизован (default False)
         is_active: активен ли профиль, soft-delete (default True)
-        family_id: FK -> family.id
-        created_by: FK -> family_member.id (nullable)
+        workspace_id: FK -> workspace.id
+        created_by: Telegram user ID создателя (nullable)
         created_at: дата создания (timezone-aware, server_default)
 
     Связи:
-        family: обратная связь с Family
-        members: M2M через family_pet
+        workspace: обратная связь с Workspace
     """
 
     __tablename__ = "pet"
@@ -101,12 +99,11 @@ class Pet(Base):
         Boolean,
         default=True,
     )
-    family_id: Mapped[int] = mapped_column(
-        ForeignKey("family.id", ondelete="CASCADE"),
+    workspace_id: Mapped[int] = mapped_column(
+        ForeignKey("workspace.id", ondelete="CASCADE"),
     )
     created_by: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
         nullable=True,
         default=None,
     )
@@ -116,8 +113,4 @@ class Pet(Base):
     )
 
     # --- Связи ---
-    family: Mapped[Family] = relationship(back_populates="pets")
-    members: Mapped[list[FamilyMember]] = relationship(
-        secondary=family_pet,
-        back_populates="pets",
-    )
+    workspace: Mapped[Workspace] = relationship(back_populates="pets")

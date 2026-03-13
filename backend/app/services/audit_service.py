@@ -27,6 +27,7 @@ async def log_change(
     entity_id: int,
     action: str,
     actor_id: int,
+    workspace_id: int | None = None,
     diff_json: dict[str, object] | None = None,
 ) -> ChangeLog:
     """Записывает изменение сущности в журнал аудита.
@@ -37,6 +38,7 @@ async def log_change(
         entity_id: ID изменённой сущности
         action: тип действия (create, update, delete)
         actor_id: ID участника, выполнившего действие (обязательный параметр)
+        workspace_id: ID workspace для tenant-изоляции (nullable для system rows)
         diff_json: детали изменений в формате JSON (nullable)
 
     Возвращает:
@@ -56,6 +58,7 @@ async def log_change(
         entity_id=entity_id,
         action=action,
         actor_id=valid_actor_id,
+        workspace_id=workspace_id,
         diff_json=diff_json,
     )
     session.add(entry)

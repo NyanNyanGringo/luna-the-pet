@@ -17,10 +17,11 @@ from backend.app.agent.prompts import build_system_prompt
 from backend.app.agent.tool_handlers import handle_tool_call
 from backend.app.agent.tools import get_tool_definitions
 from backend.app.db.models.family import ConversationState
-from backend.app.services import family_service
+from backend.app.services import workspace_service
 from backend.app.services.openai_auth_service import get_openai_client
 from openai import AsyncOpenAI
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -31,16 +32,16 @@ _MAX_TURN_COUNT = 10
 
 async def get_ai_client(
     session: AsyncSession,
-    family_id: int,
+    user_id: int,
 ) -> AsyncOpenAI:
-    """Возвращает настроенный AsyncOpenAI клиент для семьи.
+    """Возвращает настроенный AsyncOpenAI клиент для пользователя.
 
     Делегирует получение клиента в openai_auth_service, который
     выбирает OAuth или API key в зависимости от наличия credentials.
 
     Аргументы:
         session: AsyncSession для чтения OAuth credentials из БД
-        family_id: ID семьи для поиска OAuth credential
+        user_id: Telegram user ID для поиска OAuth credential
 
     Возвращает:
         AsyncOpenAI: настроенный клиент для запросов к OpenAI API
@@ -48,13 +49,13 @@ async def get_ai_client(
     Побочные эффекты:
         Может выполнить HTTP-запрос при refresh OAuth токена.
     """
-    logger.debug("Получаем AI-клиент для family_id=%d", family_id)
-    return await get_openai_client(session, family_id=family_id)
+    logger.debug("Получаем AI-клиент для user_id=%d", user_id)
+    return await get_openai_client(session, member_id=user_id)
 
 
 async def run_agent(
     session: AsyncSession,
-    family_id: int,
+    workspace_id: int,
     user_id: int,
     user_message: str,
 ) -> str:
@@ -66,25 +67,25 @@ async def run_agent(
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
-        family_id: ID семьи
+        workspace_id: ID workspace
         user_id: Telegram user ID пользователя
         user_message: текст сообщения от пользователя
 
     Возвращает:
         str: текстовый ответ агента
     """
-    state = await _load_or_create_state(session, user_id)
+    state = await _load_or_create_state(session, user_id, workspace_id)
     previous_response_id = _resolve_previous_response_id(state)
 
     response_language = _detect_response_language(user_message)
-    family_today = await _resolve_family_today(session, family_id)
+    workspace_today = await _resolve_workspace_today(session, workspace_id)
     system_prompt = await build_system_prompt(
         session=session,
-        family_id=family_id,
+        workspace_id=workspace_id,
         response_language=response_language,
-        family_today=family_today,
+        workspace_today=workspace_today,
     )
-    client = await get_ai_client(session, family_id)
+    client = await get_ai_client(session, user_id)
     tools = get_tool_definitions()
 
     response = await _call_openai(
@@ -99,9 +100,9 @@ async def run_agent(
         system_prompt,
         tools,
         user_id,
-        family_id,
+        workspace_id,
         response_language,
-        family_today,
+        workspace_today,
     )
 
     answer = _extract_text_response(response)
@@ -114,27 +115,74 @@ async def run_agent(
 async def _load_or_create_state(
     session: AsyncSession,
     user_id: int,
+    workspace_id: int,
 ) -> ConversationState:
     """Загружает существующий ConversationState или создаёт новый.
+
+    Использует savepoint для защиты от race condition: два параллельных
+    первых сообщения одного пользователя могут оба пройти SELECT → None,
+    но только один INSERT выиграет UNIQUE(telegram_user_id, workspace_id).
+    Проигравший ловит IntegrityError и делает повторный SELECT.
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
         user_id: Telegram user ID
+        workspace_id: ID workspace
 
     Возвращает:
         ConversationState: состояние диалога пользователя
     """
-    result = await session.execute(
-        select(ConversationState).where(ConversationState.user_id == user_id)
-    )
-    state = result.scalar_one_or_none()
-
+    state = await _find_conversation_state(session, user_id, workspace_id)
     if state is not None:
         return state
 
-    state = ConversationState(user_id=user_id, turn_count=0)
-    session.add(state)
-    return state
+    try:
+        async with session.begin_nested():
+            state = ConversationState(
+                telegram_user_id=user_id,
+                workspace_id=workspace_id,
+                turn_count=0,
+            )
+            session.add(state)
+            await session.flush()
+        return state
+    except IntegrityError as concurrent_error:
+        logger.info(
+            "Конкурентное создание ConversationState user_id=%d workspace_id=%d",
+            user_id,
+            workspace_id,
+        )
+        state = await _find_conversation_state(session, user_id, workspace_id)
+        if state is None:
+            raise RuntimeError(
+                f"ConversationState не найден после IntegrityError: "
+                f"user_id={user_id}, workspace_id={workspace_id}"
+            ) from concurrent_error
+        return state
+
+
+async def _find_conversation_state(
+    session: AsyncSession,
+    user_id: int,
+    workspace_id: int,
+) -> ConversationState | None:
+    """Ищет ConversationState по паре (user_id, workspace_id).
+
+    Аргументы:
+        session: асинхронная сессия SQLAlchemy
+        user_id: Telegram user ID
+        workspace_id: ID workspace
+
+    Возвращает:
+        ConversationState | None: найденное состояние или None
+    """
+    result = await session.execute(
+        select(ConversationState).where(
+            ConversationState.telegram_user_id == user_id,
+            ConversationState.workspace_id == workspace_id,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 def _resolve_previous_response_id(
@@ -169,7 +217,7 @@ async def _call_openai(
 
     Аргументы:
         client: настроенный AsyncOpenAI клиент
-        system_prompt: системный промпт с контекстом семьи
+        system_prompt: системный промпт с контекстом workspace
         user_message: сообщение пользователя
         tools: определения инструментов
         previous_response_id: ID предыдущего ответа для продолжения
@@ -193,9 +241,9 @@ async def _process_tool_calls_loop(
     system_prompt: str,
     tools: list[dict],
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str,
-    family_today: datetime.date,
+    workspace_today: datetime.date,
 ) -> object:
     """Обрабатывает tool calls в цикле до получения текстового ответа.
 
@@ -206,8 +254,8 @@ async def _process_tool_calls_loop(
         system_prompt: системный промпт
         tools: определения инструментов
         user_id: Telegram user ID
-        family_id: ID семьи
-        family_today: текущая календарная дата семьи (общая для всего run_agent)
+        workspace_id: ID workspace
+        workspace_today: текущая календарная дата workspace (общая для всего run_agent)
 
     Возвращает:
         Response: финальный ответ с текстовым сообщением
@@ -217,9 +265,9 @@ async def _process_tool_calls_loop(
             session=session,
             response=response,
             user_id=user_id,
-            family_id=family_id,
+            workspace_id=workspace_id,
             response_language=response_language,
-            family_today=family_today,
+            workspace_today=workspace_today,
         )
         response = await _send_tool_results(
             client, response, system_prompt, tools, tool_results
@@ -246,9 +294,9 @@ async def _execute_tool_calls(
     session: AsyncSession,
     response: object,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str,
-    family_today: datetime.date,
+    workspace_today: datetime.date,
 ) -> list[dict]:
     """Выполняет все tool calls из ответа.
 
@@ -256,8 +304,8 @@ async def _execute_tool_calls(
         session: асинхронная сессия SQLAlchemy
         response: ответ с tool calls
         user_id: Telegram user ID
-        family_id: ID семьи
-        family_today: текущая календарная дата семьи (одна на весь цикл)
+        workspace_id: ID workspace
+        workspace_today: текущая календарная дата workspace (одна на весь цикл)
 
     Возвращает:
         list[dict]: результаты выполнения инструментов
@@ -273,9 +321,9 @@ async def _execute_tool_calls(
             tool_name=item.name,
             arguments=arguments,
             user_id=user_id,
-            family_id=family_id,
+            workspace_id=workspace_id,
             response_language=response_language,
-            family_today=family_today,
+            workspace_today=workspace_today,
         )
         results.append(
             {
@@ -354,17 +402,17 @@ def _detect_response_language(user_message: str) -> str:
     return "ru"
 
 
-async def _resolve_family_today(
+async def _resolve_workspace_today(
     session: AsyncSession,
-    family_id: int,
+    workspace_id: int,
 ) -> datetime.date:
-    """Возвращает текущую календарную дату семьи в её таймзоне."""
+    """Возвращает текущую календарную дату workspace в его таймзоне."""
     try:
-        timezone = await family_service.get_timezone(session, family_id)
+        timezone = await workspace_service.get_timezone(session, workspace_id)
     except Exception:
         logger.exception(
-            "Не удалось получить таймзону семьи id=%d, fallback UTC",
-            family_id,
+            "Не удалось получить таймзону workspace id=%d, fallback UTC",
+            workspace_id,
         )
         timezone = "UTC"
     return current_date_in_timezone(timezone)

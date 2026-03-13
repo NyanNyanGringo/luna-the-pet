@@ -7,12 +7,7 @@ Re-export всех моделей для Alembic autodiscovery и удобног
 from backend.app.db.models.audit import ChangeLog
 from backend.app.db.models.family import (
     ConversationState,
-    Family,
-    FamilyInvite,
-    FamilyMember,
-    FamilySettings,
     OAuthCredential,
-    family_pet,
 )
 from backend.app.db.models.health import (
     EmergencyProfile,
@@ -24,16 +19,17 @@ from backend.app.db.models.health import (
 )
 from backend.app.db.models.nutrition import DietRecord, FeedingEntry
 from backend.app.db.models.pet import Pet
+from backend.app.db.models.workspace import (
+    Workspace,
+    WorkspaceMember,
+    WorkspaceSettings,
+)
 
 __all__ = [
     "ChangeLog",
     "ConversationState",
     "DietRecord",
     "EmergencyProfile",
-    "Family",
-    "FamilyInvite",
-    "FamilyMember",
-    "FamilySettings",
     "FeedingEntry",
     "MedicalRecord",
     "Medication",
@@ -42,5 +38,7 @@ __all__ = [
     "Pet",
     "Vaccination",
     "WeightRecord",
-    "family_pet",
+    "Workspace",
+    "WorkspaceMember",
+    "WorkspaceSettings",
 ]

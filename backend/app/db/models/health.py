@@ -2,9 +2,9 @@
 Модели здоровья питомца: WeightRecord, Vaccination, MedicalRecord,
 Medication, Note и EmergencyProfile.
 
-Все модели связаны с Pet через pet_id FK и опционально с FamilyMember
-через recorded_by FK. EmergencyProfile имеет UNIQUE constraint на pet_id
-(один профиль на питомца).
+Все модели связаны с Pet через pet_id FK. Поле recorded_by хранит
+Telegram user ID автора без внешнего ключа.
+EmergencyProfile имеет UNIQUE constraint на pet_id (один профиль на питомца).
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ class WeightRecord(Base):
         pet_id: FK -> pet.id, NOT NULL, CASCADE
         weight_kg: вес в килограммах (Numeric 5,2), NOT NULL
         measured_at: дата измерения, NOT NULL
-        recorded_by: FK -> family_member.id (кто записал, nullable), CASCADE
+        recorded_by: Telegram user ID (кто записал, nullable)
         created_at: дата создания (timezone-aware, server_default)
 
     Индексы:
@@ -56,7 +56,6 @@ class WeightRecord(Base):
     measured_at: Mapped[datetime.date] = mapped_column(Date)
     recorded_by: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
         nullable=True,
         default=None,
     )
@@ -78,7 +77,7 @@ class Vaccination(Base):
         vet_name: имя ветеринара / клиники (nullable), до 200 символов
         batch_number: номер партии вакцины (nullable), до 100 символов
         notes: дополнительные заметки (nullable)
-        recorded_by: FK -> family_member.id (кто записал, nullable), CASCADE
+        recorded_by: Telegram user ID (кто записал, nullable)
         created_at: дата создания (timezone-aware, server_default)
 
     Индексы:
@@ -121,7 +120,6 @@ class Vaccination(Base):
     )
     recorded_by: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
         nullable=True,
         default=None,
     )
@@ -143,7 +141,7 @@ class MedicalRecord(Base):
         date: дата события, NOT NULL
         resolved_date: дата разрешения / выздоровления (nullable)
         vet_name: имя ветеринара / клиники (nullable), до 200 символов
-        recorded_by: FK -> family_member.id (кто записал, nullable), CASCADE
+        recorded_by: Telegram user ID (кто записал, nullable)
         created_at: дата создания (timezone-aware, server_default)
 
     Индексы:
@@ -182,7 +180,6 @@ class MedicalRecord(Base):
     )
     recorded_by: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
         nullable=True,
         default=None,
     )
@@ -207,7 +204,7 @@ class Medication(Base):
         last_given_date: дата последнего приёма (nullable)
         is_active: активен ли препарат (default True)
         notes: дополнительные заметки (nullable)
-        recorded_by: FK -> family_member.id (кто записал, nullable), CASCADE
+        recorded_by: Telegram user ID (кто записал, nullable)
         created_at: дата создания (timezone-aware, server_default)
 
     Индексы:
@@ -260,7 +257,6 @@ class Medication(Base):
     )
     recorded_by: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
         nullable=True,
         default=None,
     )
@@ -277,7 +273,7 @@ class Note(Base):
         id: автоинкрементный PK
         pet_id: FK -> pet.id, NOT NULL, CASCADE
         content: текст заметки, NOT NULL
-        recorded_by: FK -> family_member.id (кто записал, nullable), CASCADE
+        recorded_by: Telegram user ID (кто записал, nullable)
         created_at: дата создания (timezone-aware, server_default)
 
     Индексы:
@@ -295,7 +291,6 @@ class Note(Base):
     content: Mapped[str] = mapped_column(Text)
     recorded_by: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
         nullable=True,
         default=None,
     )

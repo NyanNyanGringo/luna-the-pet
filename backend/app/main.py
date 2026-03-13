@@ -83,8 +83,14 @@ async def _start_polling() -> None:
         )
 
     await bot.delete_webhook(drop_pending_updates=True)
+    allowed_updates = dp.resolve_used_update_types()
     _polling_task = asyncio.create_task(
-        dp.start_polling(bot, handle_signals=False, close_bot_session=False)
+        dp.start_polling(
+            bot,
+            handle_signals=False,
+            close_bot_session=False,
+            allowed_updates=allowed_updates,
+        )
     )
     logger.info("Polling запущен (APP_ENV=dev)")
 
@@ -130,9 +136,11 @@ async def _setup_webhook() -> None:
         return
 
     try:
+        allowed_updates = dp.resolve_used_update_types()
         await bot.set_webhook(
             url=settings.WEBHOOK_URL,
             secret_token=settings.WEBHOOK_SECRET,
+            allowed_updates=allowed_updates,
         )
         logger.info("Webhook установлен: %s", settings.WEBHOOK_URL)
     except Exception:

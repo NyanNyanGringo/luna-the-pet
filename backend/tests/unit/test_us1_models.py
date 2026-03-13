@@ -133,8 +133,8 @@ class TestWeightRecord:
         assert _has_foreign_key_to(WeightRecord, "pet_id", "pet")
 
     def test_recorded_by_foreign_key(self) -> None:
-        """recorded_by ссылается на таблицу family_member."""
-        assert _has_foreign_key_to(WeightRecord, "recorded_by", "family_member")
+        """recorded_by хранит Telegram user ID без FK на legacy family_member."""
+        assert not _has_foreign_key_to(WeightRecord, "recorded_by", "family_member")
 
     def test_composite_index_pet_id_measured_at(self) -> None:
         """Существует composite индекс на (pet_id, measured_at)."""
@@ -211,8 +211,8 @@ class TestVaccination:
         assert _has_foreign_key_to(Vaccination, "pet_id", "pet")
 
     def test_recorded_by_foreign_key(self) -> None:
-        """recorded_by ссылается на таблицу family_member."""
-        assert _has_foreign_key_to(Vaccination, "recorded_by", "family_member")
+        """recorded_by хранит Telegram user ID без FK на legacy family_member."""
+        assert not _has_foreign_key_to(Vaccination, "recorded_by", "family_member")
 
     def test_composite_index_pet_id_date(self) -> None:
         """Существует composite индекс на (pet_id, date)."""
@@ -276,8 +276,8 @@ class TestMedicalRecord:
         assert _has_foreign_key_to(MedicalRecord, "pet_id", "pet")
 
     def test_recorded_by_foreign_key(self) -> None:
-        """recorded_by ссылается на таблицу family_member."""
-        assert _has_foreign_key_to(MedicalRecord, "recorded_by", "family_member")
+        """recorded_by хранит Telegram user ID без FK на legacy family_member."""
+        assert not _has_foreign_key_to(MedicalRecord, "recorded_by", "family_member")
 
     def test_composite_index_pet_id_record_type(self) -> None:
         """Существует composite индекс на (pet_id, record_type)."""
@@ -383,8 +383,8 @@ class TestMedication:
         assert _has_foreign_key_to(Medication, "pet_id", "pet")
 
     def test_recorded_by_foreign_key(self) -> None:
-        """recorded_by ссылается на таблицу family_member."""
-        assert _has_foreign_key_to(Medication, "recorded_by", "family_member")
+        """recorded_by хранит Telegram user ID без FK на legacy family_member."""
+        assert not _has_foreign_key_to(Medication, "recorded_by", "family_member")
 
     def test_composite_index_pet_id_is_active(self) -> None:
         """Существует composite индекс на (pet_id, is_active)."""
@@ -434,8 +434,8 @@ class TestNote:
         assert _has_foreign_key_to(Note, "pet_id", "pet")
 
     def test_recorded_by_foreign_key(self) -> None:
-        """recorded_by ссылается на таблицу family_member."""
-        assert _has_foreign_key_to(Note, "recorded_by", "family_member")
+        """recorded_by хранит Telegram user ID без FK на legacy family_member."""
+        assert not _has_foreign_key_to(Note, "recorded_by", "family_member")
 
     def test_composite_index_pet_id_created_at(self) -> None:
         """Существует composite индекс на (pet_id, created_at)."""
@@ -507,8 +507,8 @@ class TestDietRecord:
         assert _has_foreign_key_to(DietRecord, "pet_id", "pet")
 
     def test_recorded_by_foreign_key(self) -> None:
-        """recorded_by ссылается на таблицу family_member."""
-        assert _has_foreign_key_to(DietRecord, "recorded_by", "family_member")
+        """recorded_by хранит Telegram user ID без FK на legacy family_member."""
+        assert not _has_foreign_key_to(DietRecord, "recorded_by", "family_member")
 
     def test_composite_index_pet_id_end_date(self) -> None:
         """Существует composite индекс на (pet_id, end_date)."""
@@ -576,8 +576,8 @@ class TestFeedingEntry:
         assert _has_foreign_key_to(FeedingEntry, "pet_id", "pet")
 
     def test_recorded_by_foreign_key(self) -> None:
-        """recorded_by ссылается на таблицу family_member."""
-        assert _has_foreign_key_to(FeedingEntry, "recorded_by", "family_member")
+        """recorded_by хранит Telegram user ID без FK на legacy family_member."""
+        assert not _has_foreign_key_to(FeedingEntry, "recorded_by", "family_member")
 
     def test_composite_index_pet_id_fed_at(self) -> None:
         """Существует composite индекс на (pet_id, fed_at)."""
@@ -598,30 +598,34 @@ class TestConversationState:
         assert ConversationState.__tablename__ == "conversation_state"
 
     def test_create_with_required_fields(self) -> None:
-        """ConversationState создаётся с обязательным полем: user_id."""
-        state = ConversationState(user_id=100500)
-        assert state.user_id == 100500
+        """ConversationState создаётся с обязательными полями."""
+        state = ConversationState(telegram_user_id=100500, workspace_id=1)
+        assert state.telegram_user_id == 100500
+        assert state.workspace_id == 1
 
     def test_default_turn_count_zero(self) -> None:
         """ConversationState.turn_count по умолчанию 0."""
-        state = ConversationState(user_id=100500)
+        state = ConversationState(telegram_user_id=100500, workspace_id=1)
         assert state.turn_count == 0
 
     def test_turn_count_explicit_value(self) -> None:
         """ConversationState.turn_count можно установить явно."""
-        state = ConversationState(user_id=100500, turn_count=42)
+        state = ConversationState(
+            telegram_user_id=100500, workspace_id=1, turn_count=42
+        )
         assert state.turn_count == 42
 
     def test_create_without_nullable_fields(self) -> None:
         """ConversationState создаётся без nullable-полей."""
-        state = ConversationState(user_id=100500)
+        state = ConversationState(telegram_user_id=100500, workspace_id=1)
         assert state.last_response_id is None
         assert state.session_summary is None
 
     def test_create_with_all_fields(self) -> None:
         """ConversationState создаётся со всеми полями."""
         state = ConversationState(
-            user_id=100500,
+            telegram_user_id=100500,
+            workspace_id=1,
             last_response_id="resp_abc123",
             turn_count=10,
             session_summary="Обсуждали вакцинацию Луны",
@@ -630,29 +634,20 @@ class TestConversationState:
         assert state.turn_count == 10
         assert state.session_summary == "Обсуждали вакцинацию Луны"
 
-    def test_user_id_is_primary_key(self) -> None:
-        """user_id является первичным ключом."""
+    def test_id_is_autoincrement_primary_key(self) -> None:
+        """id является автоинкрементным первичным ключом."""
         pk_columns = {
             column.name for column in ConversationState.__table__.primary_key.columns
         }
-        assert pk_columns == {"user_id"}
+        assert pk_columns == {"id"}
 
-    def test_user_id_not_autoincrement(self) -> None:
-        """user_id НЕ является autoincrement (Telegram user ID задаётся извне)."""
-        user_id_column = ConversationState.__table__.c.user_id
-        assert (
-            user_id_column.autoincrement is False
-            or user_id_column.autoincrement == "auto"
-        )
-        # Дополнительная проверка: у PK с BigInteger и autoincrement=False
-        # не должно быть sequence
-        assert (
-            not user_id_column.autoincrement or user_id_column.autoincrement == "auto"
-        )
+    def test_has_telegram_user_id_column(self) -> None:
+        """ConversationState имеет колонку telegram_user_id."""
+        assert "telegram_user_id" in _get_column_names(ConversationState)
 
-    def test_user_id_foreign_key(self) -> None:
-        """user_id ссылается на таблицу family_member."""
-        assert _has_foreign_key_to(ConversationState, "user_id", "family_member")
+    def test_workspace_id_foreign_key(self) -> None:
+        """workspace_id ссылается на таблицу workspace."""
+        assert _has_foreign_key_to(ConversationState, "workspace_id", "workspace")
 
     def test_has_updated_at_column(self) -> None:
         """ConversationState имеет колонку updated_at."""

@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "be7d6b934817",
+  "strategy": "manual-commit",
+  "branch": "003-group-only-mode",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/services/family_service.py",
+    "backend/tests/unit/test_family_service.py",
+    "backend/tests/unit/test_models.py",
+    "specs/003-group-only-mode/tasks.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/be/7d6b934817/0/metadata.json",
+      "transcript": "/be/7d6b934817/0/full.jsonl",
+      "context": "/be/7d6b934817/0/context.md",
+      "content_hash": "/be/7d6b934817/0/content_hash.txt",
+      "prompt": "/be/7d6b934817/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 7,
+    "cache_creation_tokens": 27738,
+    "cache_read_tokens": 125480,
+    "output_tokens": 1568,
+    "api_call_count": 5
+  }
+}

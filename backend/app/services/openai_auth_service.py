@@ -55,13 +55,13 @@ class PKCEStateContext:
 
     Поля:
         code_verifier: PKCE verifier, сгенерированный в /connectai
-        family_id: ID семьи, к которой привязываются токены
+        workspace_id: ID workspace, к которому привязываются токены
         member_id: Telegram user ID инициатора команды /connectai
         expires_at: UTC-время истечения контекста
     """
 
     code_verifier: str
-    family_id: int
+    workspace_id: int
     member_id: int
     expires_at: datetime
 
@@ -72,7 +72,7 @@ _pkce_state_context_by_state: dict[str, PKCEStateContext] = {}
 def store_pkce_state_context(
     state: str,
     code_verifier: str,
-    family_id: int,
+    workspace_id: int,
     member_id: int,
 ) -> None:
     """Сохраняет PKCE state-контекст до момента OAuth callback.
@@ -80,7 +80,7 @@ def store_pkce_state_context(
     Аргументы:
         state: CSRF state из authorize URL
         code_verifier: PKCE code_verifier, связанный с state
-        family_id: ID семьи инициатора авторизации
+        workspace_id: ID workspace инициатора авторизации
         member_id: Telegram user ID инициатора авторизации
 
     Ошибки:
@@ -98,7 +98,7 @@ def store_pkce_state_context(
     _drop_expired_pkce_state_contexts(now)
     _pkce_state_context_by_state[state] = PKCEStateContext(
         code_verifier=code_verifier,
-        family_id=family_id,
+        workspace_id=workspace_id,
         member_id=member_id,
         expires_at=now + timedelta(seconds=_PKCE_CONTEXT_TTL_SECONDS),
     )
@@ -255,7 +255,7 @@ def decrypt_token(encrypted_token: str, encryption_key: str) -> str:
 
 async def exchange_code_for_tokens(
     session: AsyncSession,
-    family_id: int,
+    member_id: int,
     code: str,
     code_verifier: str,
     redirect_uri: str,
@@ -267,7 +267,7 @@ async def exchange_code_for_tokens(
 
     Аргументы:
         session: AsyncSession для записи в БД
-        family_id: ID семьи, к которой привязываются токены
+        member_id: Telegram user ID владельца OAuth-токена
         code: authorization code от OAuth callback
         code_verifier: PKCE code_verifier для подтверждения
         redirect_uri: URL обратного вызова (должен совпадать с authorize)
@@ -290,26 +290,26 @@ async def exchange_code_for_tokens(
     token_data = await _request_tokens(code, code_verifier, redirect_uri, client_id)
     credential = await _upsert_openai_credential(
         session=session,
-        family_id=family_id,
+        member_id=member_id,
         token_data=token_data,
         encryption_key=encryption_key,
     )
 
-    logger.info("OAuth credential сохранён для family_id=%d", family_id)
+    logger.info("OAuth credential сохранён для member_id=%d", member_id)
     return credential
 
 
 async def _upsert_openai_credential(
     session: AsyncSession,
-    family_id: int,
+    member_id: int,
     token_data: TokenData,
     encryption_key: str,
 ) -> OAuthCredential:
-    """Создаёт или обновляет OAuthCredential для family_id/provider=openai.
+    """Создаёт или обновляет OAuthCredential для member_id/provider=openai.
 
     Аргументы:
         session: AsyncSession для записи в БД
-        family_id: ID семьи
+        member_id: Telegram user ID владельца credential
         token_data: ответ token endpoint с access/refresh/expires_in
         encryption_key: Fernet-ключ для шифрования токенов
 
@@ -319,7 +319,11 @@ async def _upsert_openai_credential(
     Побочные эффекты:
         Добавляет новую или обновляет существующую запись, выполняет flush.
     """
-    existing_credential = await _find_provider_credential(session, family_id, "openai")
+    existing_credential = await _find_provider_credential(
+        session,
+        member_id,
+        "openai",
+    )
     if existing_credential is not None:
         await _update_existing_credential(
             session,
@@ -332,18 +336,18 @@ async def _upsert_openai_credential(
     try:
         return await _insert_new_credential(
             session,
-            family_id,
+            member_id,
             token_data,
             encryption_key,
         )
     except IntegrityError:
         logger.info(
-            "OAuth credential уже создан конкурентной транзакцией family_id=%d",
-            family_id,
+            "OAuth credential уже создан конкурентной транзакцией member_id=%d",
+            member_id,
         )
         concurrent_credential = await _find_provider_credential(
             session,
-            family_id,
+            member_id,
             "openai",
         )
         if concurrent_credential is None:
@@ -359,7 +363,7 @@ async def _upsert_openai_credential(
 
 async def _insert_new_credential(
     session: AsyncSession,
-    family_id: int,
+    member_id: int,
     token_data: TokenData,
     encryption_key: str,
 ) -> OAuthCredential:
@@ -367,14 +371,14 @@ async def _insert_new_credential(
 
     Аргументы:
         session: AsyncSession для записи в БД
-        family_id: ID семьи
+        member_id: Telegram user ID владельца credential
         token_data: ответ token endpoint с access/refresh/expires_in
         encryption_key: Fernet-ключ для шифрования токенов
 
     Возвращает:
         OAuthCredential: созданная запись
     """
-    new_credential = _build_credential(token_data, family_id, encryption_key)
+    new_credential = _build_credential(token_data, member_id, encryption_key)
     async with session.begin_nested():
         session.add(new_credential)
         await session.flush()
@@ -402,19 +406,19 @@ async def _update_existing_credential(
 
 async def get_openai_client(
     session: AsyncSession,
-    family_id: int,
+    member_id: int,
 ) -> AsyncOpenAI:
     """Возвращает AsyncOpenAI клиент: OAuth primary, fallback на API key.
 
     Логика (из research.md):
-    1. Ищет активный OAuthCredential для family_id
+    1. Ищет активный OAuthCredential для member_id
     2. Если найден и не истёк — использует access_token
     3. Если истёк — пытается refresh
     4. Если refresh не удался или credential не найден — fallback на OPENAI_API_KEY
 
     Аргументы:
         session: AsyncSession для чтения credential из БД
-        family_id: ID семьи
+        member_id: Telegram user ID инициатора запроса
 
     Возвращает:
         AsyncOpenAI: настроенный клиент OpenAI
@@ -424,10 +428,13 @@ async def get_openai_client(
         Может выполнить HTTP-запрос при refresh токена.
     """
     settings = Settings()
-    credential = await _find_active_credential(session, family_id)
+    credential = await _find_active_credential(session, member_id)
 
     if credential is None:
-        logger.info("OAuth credential не найден для family_id=%d, fallback", family_id)
+        logger.info(
+            "OAuth credential не найден для member_id=%d, fallback",
+            member_id,
+        )
         return _create_api_key_client(settings)
 
     return await _resolve_oauth_client(session, credential, settings)
@@ -521,19 +528,19 @@ def _create_api_key_client(settings: Settings) -> AsyncOpenAI:
 
 async def _find_active_credential(
     session: AsyncSession,
-    family_id: int,
+    member_id: int,
 ) -> OAuthCredential | None:
-    """Ищет активный OAuthCredential для семьи (provider=openai).
+    """Ищет активный OAuthCredential для пользователя (provider=openai).
 
     Аргументы:
         session: AsyncSession для запроса
-        family_id: ID семьи
+        member_id: Telegram user ID владельца credential
 
     Возвращает:
         OAuthCredential | None: найденный credential или None
     """
     query = select(OAuthCredential).where(
-        OAuthCredential.family_id == family_id,
+        OAuthCredential.telegram_user_id == member_id,
         OAuthCredential.provider == "openai",
         OAuthCredential.status == "active",
     )
@@ -543,21 +550,21 @@ async def _find_active_credential(
 
 async def _find_provider_credential(
     session: AsyncSession,
-    family_id: int,
+    member_id: int,
     provider: str,
 ) -> OAuthCredential | None:
     """Ищет OAuthCredential для провайдера без фильтра по статусу.
 
     Аргументы:
         session: AsyncSession для запроса
-        family_id: ID семьи
+        member_id: Telegram user ID владельца credential
         provider: имя OAuth провайдера (например, "openai")
 
     Возвращает:
         OAuthCredential | None: найденный credential или None
     """
     query = select(OAuthCredential).where(
-        OAuthCredential.family_id == family_id,
+        OAuthCredential.telegram_user_id == member_id,
         OAuthCredential.provider == provider,
     )
     result = await session.execute(query)
@@ -633,14 +640,14 @@ async def _refresh_oauth_tokens(
 
 def _build_credential(
     token_data: TokenData,
-    family_id: int,
+    member_id: int,
     encryption_key: str,
 ) -> OAuthCredential:
     """Создаёт OAuthCredential из ответа token endpoint.
 
     Аргументы:
         token_data: dict с access_token, refresh_token, expires_in
-        family_id: ID семьи
+        member_id: Telegram user ID владельца credential
         encryption_key: Fernet-ключ для шифрования токенов
 
     Возвращает:
@@ -649,7 +656,7 @@ def _build_credential(
     expires_in = token_data.get("expires_in", 3600)
 
     return OAuthCredential(
-        family_id=family_id,
+        telegram_user_id=member_id,
         provider="openai",
         access_token_enc=encrypt_token(token_data["access_token"], encryption_key),
         refresh_token_enc=encrypt_token(token_data["refresh_token"], encryption_key),

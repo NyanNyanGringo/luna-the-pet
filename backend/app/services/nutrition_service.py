@@ -11,6 +11,7 @@ import datetime
 import logging
 
 from backend.app.db.models.nutrition import DietRecord, FeedingEntry
+from backend.app.db.models.pet import Pet
 from backend.app.services import audit_service
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,6 +55,7 @@ async def add_diet_record(
         (end_date=new start_date), пишет аудит close/create и делает flush.
     """
     valid_recorded_by = _require_actor_id(recorded_by, "recorded_by")
+    workspace_id = await _get_workspace_id_for_pet(session, pet_id)
     open_diets = await _get_open_diets(session, pet_id)
     if kwargs.get("end_date") is None and open_diets:
         _validate_diet_chronology(start_date, open_diets[0].start_date)
@@ -63,6 +65,7 @@ async def add_diet_record(
                 diet=open_diet,
                 end_date=start_date,
                 actor_id=valid_recorded_by,
+                workspace_id=workspace_id,
             )
 
     diet = DietRecord(
@@ -79,6 +82,7 @@ async def add_diet_record(
         entity_id=diet.id,
         action="create",
         actor_id=valid_recorded_by,
+        workspace_id=workspace_id,
         diff_json={
             "pet_id": pet_id,
             "food_brand": food_brand,
@@ -174,6 +178,7 @@ async def end_diet_record(
     """
     valid_actor_id = _require_actor_id(actor_id)
     diet = await _get_diet_record_or_raise(session, diet_record_id)
+    workspace_id = await _get_workspace_id_for_pet(session, diet.pet_id)
     _validate_diet_end_date(end_date=end_date, start_date=diet.start_date)
     diet.end_date = end_date
     await session.flush()
@@ -182,6 +187,7 @@ async def end_diet_record(
         entity_id=diet.id,
         action="close",
         actor_id=valid_actor_id,
+        workspace_id=workspace_id,
         diff_json={"end_date": end_date},
     )
 
@@ -310,6 +316,7 @@ async def _close_open_diet(
     diet: DietRecord,
     end_date: datetime.date,
     actor_id: int,
+    workspace_id: int,
 ) -> None:
     """Закрывает открытую диету и пишет аудит close."""
     diet.end_date = end_date
@@ -319,6 +326,7 @@ async def _close_open_diet(
         entity_id=diet.id,
         action="close",
         actor_id=actor_id,
+        workspace_id=workspace_id,
         diff_json={"end_date": end_date},
     )
 
@@ -328,6 +336,7 @@ async def _log_diet_change(
     entity_id: int,
     action: str,
     actor_id: int,
+    workspace_id: int,
     diff_json: dict[str, object],
 ) -> None:
     """Пишет запись аудита по изменениям DietRecord."""
@@ -337,6 +346,7 @@ async def _log_diet_change(
         entity_id=entity_id,
         action=action,
         actor_id=actor_id,
+        workspace_id=workspace_id,
         diff_json=_to_audit_diff(diff_json),
     )
 
@@ -391,6 +401,7 @@ async def add_feeding_entry(
         Добавляет FeedingEntry в сессию, делает flush и пишет аудит create.
     """
     valid_recorded_by = _require_actor_id(recorded_by, "recorded_by")
+    workspace_id = await _get_workspace_id_for_pet(session, pet_id)
     valid_fed_at = _require_timezone_aware_datetime(fed_at, "fed_at")
     entry = FeedingEntry(
         pet_id=pet_id,
@@ -406,6 +417,7 @@ async def add_feeding_entry(
         entity_id=entry.id,
         action="create",
         actor_id=valid_recorded_by,
+        workspace_id=workspace_id,
         diff_json={
             "pet_id": pet_id,
             "fed_at": valid_fed_at,
@@ -442,6 +454,7 @@ async def _log_feeding_change(
     entity_id: int,
     action: str,
     actor_id: int,
+    workspace_id: int,
     diff_json: dict[str, object],
 ) -> None:
     """Пишет запись аудита по изменениям FeedingEntry."""
@@ -451,8 +464,19 @@ async def _log_feeding_change(
         entity_id=entity_id,
         action=action,
         actor_id=actor_id,
+        workspace_id=workspace_id,
         diff_json=_to_audit_diff(diff_json),
     )
+
+
+async def _get_workspace_id_for_pet(session: AsyncSession, pet_id: int) -> int:
+    """Возвращает workspace_id питомца или бросает ValueError."""
+    workspace_id = await session.scalar(
+        select(Pet.workspace_id).where(Pet.id == pet_id),
+    )
+    if workspace_id is None:
+        raise ValueError(f"Питомец с id={pet_id} не найден")
+    return workspace_id
 
 
 async def get_feeding_entries(

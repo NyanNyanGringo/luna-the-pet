@@ -1,9 +1,10 @@
 """
 Роутер для команд /start и /help — точка входа пользователя в бота.
 
-Обрабатывает первое сообщение пользователя, deep link приглашения
-и команду справки. Экспортирует фабрику create_start_router()
-для безопасной многократной регистрации.
+Обрабатывает private onboarding: объясняет, что бот работает
+только в групповых чатах, и показывает инструкцию по добавлению.
+Экспортирует фабрику create_start_router() для безопасной
+многократной регистрации.
 """
 
 import logging
@@ -11,97 +12,36 @@ import logging
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
-from backend.app.services.family_service import (
-    get_member,
-    get_or_create_family,
-    register_member,
-    use_invite,
-)
-from sqlalchemy.ext.asyncio import AsyncSession
+from backend.app.bot.handlers.constants import HELP_PRIVATE_TEXT, START_PRIVATE_TEXT
 
 logger = logging.getLogger(__name__)
 
-# Текст справки со списком доступных команд
-_HELP_TEXT = (
-    "Доступные команды:\n"
-    "/start — начать работу с ботом\n"
-    "/help — показать список команд\n"
-    "/invite — создать приглашение в семью"
-)
 
-
-async def handle_start(message: Message, session: AsyncSession) -> None:
-    """Обрабатывает команду /start: регистрация, deep link, приветствие.
-
-    Новый пользователь: создаёт Family (если нет), регистрирует участника.
-    Существующий: только приветствие.
-    Deep link (/start <invite_code>): принимает инвайт в обоих случаях.
+async def handle_start(message: Message) -> None:
+    """Обрабатывает /start в private-чате — отправляет инструкцию по группе.
 
     Аргументы:
         message: входящее сообщение от пользователя
-        session: асинхронная сессия SQLAlchemy
 
     Побочные эффекты:
-        Создаёт Family/FamilyMember при необходимости.
-        Использует инвайт при наличии deep link.
-        Отправляет приветственное сообщение.
+        Отправляет START_PRIVATE_TEXT с инструкцией по созданию группы.
     """
     user = message.from_user
-    user_name = user.first_name if user else "друг"
     user_id = user.id if user else 0
-    username = user.username if user else None
-
-    logger.info("Пользователь %s вызвал /start", user_id)
-
-    invite_code = _extract_deep_link_code(message.text)
-    family = await get_or_create_family(session)
-    existing_member = await get_member(session, telegram_user_id=user_id)
-
-    if existing_member is None:
-        await register_member(
-            session,
-            telegram_user_id=user_id,
-            first_name=user_name,
-            username=username,
-            family_id=family.id,
-        )
-
-    if invite_code:
-        await use_invite(session, invite_code=invite_code, user_id=user_id)
-
-    greeting = f"Привет, {user_name}! Я Luna — твой помощник по уходу за питомцами."
-    await message.answer(greeting)
-
-
-def _extract_deep_link_code(text: str | None) -> str | None:
-    """Извлекает invite code из deep link текста '/start <code>'.
-
-    Аргументы:
-        text: текст сообщения (может быть None)
-
-    Возвращает:
-        str | None: код приглашения или None если deep link отсутствует
-    """
-    if not text:
-        return None
-
-    parts = text.strip().split(maxsplit=1)
-    if len(parts) < 2:
-        return None
-
-    return parts[1]
+    logger.info("Пользователь %s вызвал /start в private", user_id)
+    await message.answer(START_PRIVATE_TEXT)
 
 
 async def handle_help(message: Message) -> None:
-    """Обрабатывает команду /help — отправляет список доступных команд.
+    """Обрабатывает /help в private-чате — список команд + инструкция по группе.
 
     Аргументы:
         message: входящее сообщение от пользователя
 
     Побочные эффекты:
-        Отправляет сообщение со списком команд.
+        Отправляет HELP_PRIVATE_TEXT со списком команд и инструкцией.
     """
-    await message.answer(_HELP_TEXT)
+    await message.answer(HELP_PRIVATE_TEXT)
 
 
 def create_start_router() -> Router:

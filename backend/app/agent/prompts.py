@@ -1,7 +1,7 @@
 """
 Построение system prompt для AI-агента.
 
-Загружает контекст семьи (питомцы, лекарства, таймзона) из БД
+Загружает контекст workspace (питомцы, лекарства, таймзона) из БД
 и формирует инструкции для модели OpenAI.
 """
 
@@ -11,7 +11,7 @@ import datetime
 import logging
 
 from backend.app.agent.date_utils import current_date_in_timezone
-from backend.app.services import family_service, health_service, pet_service
+from backend.app.services import health_service, pet_service, workspace_service
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -19,34 +19,34 @@ logger = logging.getLogger(__name__)
 
 async def build_system_prompt(
     session: AsyncSession,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_today: datetime.date | None = None,
+    workspace_today: datetime.date | None = None,
 ) -> str:
-    """Формирует system prompt для AI-агента с контекстом семьи.
+    """Формирует system prompt для AI-агента с контекстом workspace.
 
-    Загружает питомцев, их активные лекарства и таймзону семьи,
+    Загружает питомцев, их активные лекарства и таймзону workspace,
     затем собирает промпт с инструкциями для модели.
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
-        family_id: ID семьи
+        workspace_id: ID workspace
 
     Возвращает:
         str: system prompt для OpenAI API
     """
-    pets = await pet_service.get_family_pets(session, family_id)
-    timezone = await family_service.get_timezone(session, family_id)
+    pets = await pet_service.get_workspace_pets(session, workspace_id)
+    timezone = await workspace_service.get_timezone(session, workspace_id)
     pets_section = await _build_pets_section(session, pets)
 
     resolved_language = _resolve_response_language(response_language)
-    resolved_family_today = family_today or current_date_in_timezone(timezone)
+    resolved_workspace_today = workspace_today or current_date_in_timezone(timezone)
 
     return _assemble_prompt(
         pets_section=pets_section,
         timezone=timezone,
         response_language=resolved_language,
-        family_today=resolved_family_today,
+        workspace_today=resolved_workspace_today,
     )
 
 
@@ -58,13 +58,13 @@ async def _build_pets_section(
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
-        pets: список питомцев семьи
+        pets: список питомцев workspace
 
     Возвращает:
         str: текстовый блок с описанием питомцев
     """
     if not pets:
-        return "У семьи пока нет зарегистрированных питомцев."
+        return "В workspace пока нет зарегистрированных питомцев."
 
     lines = []
     for pet in pets:
@@ -82,20 +82,20 @@ def _assemble_prompt(
     pets_section: str,
     timezone: str,
     response_language: str,
-    family_today: datetime.date,
+    workspace_today: datetime.date,
 ) -> str:
     """Собирает финальный system prompt из частей.
 
     Аргументы:
         pets_section: блок с информацией о питомцах
-        timezone: IANA-таймзона семьи
+        timezone: IANA-таймзона workspace
 
     Возвращает:
         str: готовый system prompt
     """
     if response_language == "en":
         return (
-            "You are a family pet care assistant.\n"
+            "You are a workspace pet care assistant.\n"
             "Respond in English.\n"
             "Use available tools to record pet-related data.\n"
             "\n"
@@ -103,15 +103,15 @@ def _assemble_prompt(
             "explicitly mentioned. Do not ask about or fill in fields "
             "the user did not bring up.\n"
             "\n"
-            f"Family timezone: {timezone}\n"
-            f"Current family date: {family_today.isoformat()}\n"
+            f"Workspace timezone: {timezone}\n"
+            f"Current workspace date: {workspace_today.isoformat()}\n"
             "\n"
-            "Family pets:\n"
+            "Workspace pets:\n"
             f"{pets_section}\n"
         )
 
     return (
-        "Ты — ассистент по уходу за домашними животными семьи.\n"
+        "Ты — ассистент по уходу за домашними животными workspace.\n"
         "Отвечай на русском языке. Будь дружелюбным и полезным.\n"
         "Используй доступные инструменты для записи данных о питомцах.\n"
         "\n"
@@ -119,10 +119,10 @@ def _assemble_prompt(
         "пользователь явно упомянул. Не запрашивай и не заполняй поля, "
         "о которых пользователь не говорил.\n"
         "\n"
-        f"Таймзона семьи: {timezone}\n"
-        f"Текущая дата семьи: {family_today.isoformat()}\n"
+        f"Таймзона workspace: {timezone}\n"
+        f"Текущая дата workspace: {workspace_today.isoformat()}\n"
         "\n"
-        "Питомцы семьи:\n"
+        "Питомцы workspace:\n"
         f"{pets_section}\n"
     )
 

@@ -56,15 +56,15 @@ async def openai_oauth_callback(
     try:
         await exchange_code_for_tokens(
             session=session,
-            family_id=pkce_context.family_id,
+            member_id=pkce_context.member_id,
             code=code,
             code_verifier=pkce_context.code_verifier,
             redirect_uri=redirect_uri,
         )
         await session.commit()
         logger.info(
-            "OAuth подключение завершено для family_id=%d member_id=%d",
-            pkce_context.family_id,
+            "OAuth подключение завершено для workspace_id=%d member_id=%d",
+            pkce_context.workspace_id,
             pkce_context.member_id,
         )
         return {"status": "connected"}

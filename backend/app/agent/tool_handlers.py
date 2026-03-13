@@ -16,10 +16,10 @@ from backend.app.agent.date_utils import InvalidRuntimeDateError, parse_runtime_
 from backend.app.agent.i18n import get_message
 from backend.app.db.models.pet import Pet
 from backend.app.services import (
-    family_service,
     health_service,
     nutrition_service,
     pet_service,
+    workspace_service,
 )
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,9 +47,9 @@ async def handle_tool_call(
     tool_name: str,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_today: datetime.date | None = None,
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Маршрутизирует вызов инструмента к соответствующему сервису.
 
@@ -58,8 +58,8 @@ async def handle_tool_call(
         tool_name: имя инструмента (например, "add_weight")
         arguments: словарь аргументов от OpenAI
         user_id: Telegram user ID вызывающего
-        family_id: ID семьи
-        family_today: текущая дата семьи (предвычисленная в brain.run_agent)
+        workspace_id: ID workspace
+        workspace_today: текущая дата workspace (предвычисленная в brain.run_agent)
 
     Возвращает:
         str: строка-подтверждение или сообщение об ошибке
@@ -70,16 +70,16 @@ async def handle_tool_call(
         return get_message("unknown_tool", language=resolved_language)
 
     try:
-        family_timezone = await _resolve_family_timezone(session, family_id)
+        workspace_timezone = await _resolve_workspace_timezone(session, workspace_id)
         async with session.begin_nested():
             return await handler(
                 session=session,
                 arguments=arguments,
                 user_id=user_id,
-                family_id=family_id,
+                workspace_id=workspace_id,
                 response_language=resolved_language,
-                family_timezone=family_timezone,
-                family_today=family_today,
+                workspace_timezone=workspace_timezone,
+                workspace_today=workspace_today,
             )
     except InvalidRuntimeDateError as error:
         logger.exception("Ошибка парсинга даты в инструменте '%s'", tool_name)
@@ -106,18 +106,18 @@ async def _handle_add_weight(
     session: AsyncSession,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_timezone: str = "UTC",
-    family_today: datetime.date | None = None,
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Записывает вес питомца."""
-    pet = await _resolve_pet(session, family_id, arguments["pet_name"])
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
     measured_at = _parse_date_field(
         arguments["measured_at"],
         field_name="measured_at",
-        family_timezone=family_timezone,
-        family_today=family_today,
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
     )
     record = await health_service.add_weight(
         session=session,
@@ -138,18 +138,18 @@ async def _handle_add_vaccination(
     session: AsyncSession,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_timezone: str = "UTC",
-    family_today: datetime.date | None = None,
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Записывает вакцинацию питомца."""
-    pet = await _resolve_pet(session, family_id, arguments["pet_name"])
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
     vaccination_date = _parse_date_field(
         arguments["date"],
         field_name="date",
-        family_timezone=family_timezone,
-        family_today=family_today,
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
     )
     record = await health_service.add_vaccination(
         session=session,
@@ -170,18 +170,18 @@ async def _handle_add_medication(
     session: AsyncSession,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_timezone: str = "UTC",
-    family_today: datetime.date | None = None,
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Добавляет лекарство для питомца."""
-    pet = await _resolve_pet(session, family_id, arguments["pet_name"])
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
     medication_start_date = _parse_date_field(
         arguments["start_date"],
         field_name="start_date",
-        family_timezone=family_timezone,
-        family_today=family_today,
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
     )
     record = await health_service.add_medication(
         session=session,
@@ -203,13 +203,13 @@ async def _handle_add_note(
     session: AsyncSession,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_timezone: str = "UTC",
-    family_today: datetime.date | None = None,
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Добавляет заметку о питомце."""
-    pet = await _resolve_pet(session, family_id, arguments["pet_name"])
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
     record = await health_service.add_note(
         session=session,
         pet_id=pet.id,
@@ -227,18 +227,18 @@ async def _handle_add_diet(
     session: AsyncSession,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_timezone: str = "UTC",
-    family_today: datetime.date | None = None,
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Добавляет запись о диете питомца."""
-    pet = await _resolve_pet(session, family_id, arguments["pet_name"])
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
     diet_start_date = _parse_date_field(
         arguments["start_date"],
         field_name="start_date",
-        family_timezone=family_timezone,
-        family_today=family_today,
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
     )
     record = await nutrition_service.add_diet_record(
         session=session,
@@ -259,13 +259,13 @@ async def _handle_add_feeding(
     session: AsyncSession,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_timezone: str = "UTC",
-    family_today: datetime.date | None = None,
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Записывает факт кормления питомца."""
-    pet = await _resolve_pet(session, family_id, arguments["pet_name"])
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
     fed_at = _parse_offset_aware_datetime(
         raw_value=arguments["fed_at"],
         field_name="fed_at",
@@ -288,13 +288,15 @@ async def _handle_get_pet_profile(
     session: AsyncSession,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_timezone: str = "UTC",
-    family_today: datetime.date | None = None,
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Возвращает профиль питомца в текстовом виде."""
-    pet = await pet_service.get_pet_by_name(session, family_id, arguments["pet_name"])
+    pet = await pet_service.get_pet_by_name(
+        session, workspace_id, arguments["pet_name"]
+    )
     if pet is None:
         raise ValueError(f"Питомец '{arguments['pet_name']}' не найден")
 
@@ -305,18 +307,18 @@ async def _handle_update_pet(
     session: AsyncSession,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_timezone: str = "UTC",
-    family_today: datetime.date | None = None,
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Обновляет профиль питомца."""
-    pet = await _resolve_pet(session, family_id, arguments["pet_name"])
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
     update_fields = _extract_update_fields(arguments)
     normalized_update_fields = _normalize_pet_update_fields(
         fields=update_fields,
-        family_timezone=family_timezone,
-        family_today=family_today,
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
     )
     updated_pet = await pet_service.update_pet(
         session,
@@ -335,15 +337,15 @@ async def _handle_create_pet(
     session: AsyncSession,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_timezone: str = "UTC",
-    family_today: datetime.date | None = None,
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Создаёт нового питомца."""
     pet = await pet_service.create_pet(
         session=session,
-        family_id=family_id,
+        workspace_id=workspace_id,
         name=arguments["name"],
         species=arguments["species"],
         actor_id=user_id,
@@ -360,18 +362,18 @@ async def _handle_update_emergency_profile(
     session: AsyncSession,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_timezone: str = "UTC",
-    family_today: datetime.date | None = None,
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Обновляет экстренный профиль питомца."""
-    pet = await _resolve_pet(session, family_id, arguments["pet_name"])
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
     update_fields = _extract_emergency_fields(arguments)
     normalized_update_fields = _normalize_emergency_update_fields(
         fields=update_fields,
-        family_timezone=family_timezone,
-        family_today=family_today,
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
     )
     await health_service.update_emergency_profile(
         session,
@@ -386,13 +388,13 @@ async def _handle_get_emergency_profile(
     session: AsyncSession,
     arguments: dict,
     user_id: int,
-    family_id: int,
+    workspace_id: int,
     response_language: str = "ru",
-    family_timezone: str = "UTC",
-    family_today: datetime.date | None = None,
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
 ) -> str:
     """Возвращает экстренный профиль питомца."""
-    pet = await _resolve_pet(session, family_id, arguments["pet_name"])
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
     profile = await health_service.get_or_create_emergency_profile(
         session,
         pet.id,
@@ -408,17 +410,17 @@ async def _handle_get_emergency_profile(
 
 async def _resolve_pet(
     session: AsyncSession,
-    family_id: int,
+    workspace_id: int,
     pet_name: str,
 ) -> object:
-    """Находит питомца по имени в семье или бросает ValueError.
+    """Находит питомца по имени в workspace или бросает ValueError.
 
     Выполняет запрос к БД напрямую (без делегирования в pet_service),
     чтобы корректно работать с mock-сессиями в тестах.
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
-        family_id: ID семьи
+        workspace_id: ID workspace
         pet_name: имя питомца
 
     Возвращает:
@@ -429,7 +431,7 @@ async def _resolve_pet(
     """
     result = await session.execute(
         select(Pet).where(
-            Pet.family_id == family_id,
+            Pet.workspace_id == workspace_id,
             Pet.is_active.is_(True),
             func.lower(Pet.name) == pet_name.lower(),
         )
@@ -441,7 +443,7 @@ async def _resolve_pet(
         pet = await pet
 
     if pet is None:
-        raise ValueError(f"Питомец '{pet_name}' не найден в семье")
+        raise ValueError(f"Питомец '{pet_name}' не найден в workspace")
     return pet
 
 
@@ -595,8 +597,8 @@ def _extract_whitelisted_fields(
 
 def _normalize_pet_update_fields(
     fields: dict[str, object],
-    family_timezone: str,
-    family_today: datetime.date | None = None,
+    workspace_timezone: str,
+    workspace_today: datetime.date | None = None,
 ) -> dict[str, object]:
     """Нормализует поля update_pet до доменных типов."""
     normalized_fields: dict[str, object] = {}
@@ -605,8 +607,8 @@ def _normalize_pet_update_fields(
             normalized_fields[field_name] = _parse_optional_runtime_date(
                 raw_value=field_value,
                 field_name="birth_date",
-                family_timezone=family_timezone,
-                family_today=family_today,
+                workspace_timezone=workspace_timezone,
+                workspace_today=workspace_today,
             )
             continue
         normalized_fields[field_name] = field_value
@@ -615,8 +617,8 @@ def _normalize_pet_update_fields(
 
 def _normalize_emergency_update_fields(
     fields: dict[str, object],
-    family_timezone: str,
-    family_today: datetime.date | None = None,
+    workspace_timezone: str,
+    workspace_today: datetime.date | None = None,
 ) -> dict[str, object]:
     """Нормализует поля update_emergency_profile до доменных типов."""
     normalized_fields: dict[str, object] = {}
@@ -637,8 +639,8 @@ def _normalize_emergency_update_fields(
             normalized_fields[field_name] = _parse_optional_runtime_date(
                 raw_value=field_value,
                 field_name="rabies_vaccination_date",
-                family_timezone=family_timezone,
-                family_today=family_today,
+                workspace_timezone=workspace_timezone,
+                workspace_today=workspace_today,
             )
             continue
         if field_name == "latest_weight_snapshot" and field_value is not None:
@@ -666,8 +668,8 @@ def _normalize_nullable_emergency_value(
 def _parse_optional_runtime_date(
     raw_value: object,
     field_name: str,
-    family_timezone: str,
-    family_today: datetime.date | None = None,
+    workspace_timezone: str,
+    workspace_today: datetime.date | None = None,
 ) -> datetime.date | None:
     """Парсит optional date-поле и поддерживает относительные даты."""
     if raw_value is None:
@@ -677,8 +679,8 @@ def _parse_optional_runtime_date(
     return _parse_date_field(
         raw_value=raw_value,
         field_name=field_name,
-        family_timezone=family_timezone,
-        family_today=family_today,
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
     )
 
 
@@ -691,17 +693,17 @@ def _has_non_empty_profile_value(value: object) -> bool:
     return True
 
 
-async def _resolve_family_timezone(
+async def _resolve_workspace_timezone(
     session: AsyncSession,
-    family_id: int,
+    workspace_id: int,
 ) -> str:
-    """Возвращает таймзону семьи; при ошибке использует UTC."""
+    """Возвращает таймзону workspace; при ошибке использует UTC."""
     try:
-        return await family_service.get_timezone(session, family_id)
+        return await workspace_service.get_timezone(session, workspace_id)
     except Exception:
         logger.exception(
-            "Не удалось получить таймзону семьи id=%d, fallback на UTC",
-            family_id,
+            "Не удалось получить таймзону workspace id=%d, fallback на UTC",
+            workspace_id,
         )
         return "UTC"
 
@@ -716,21 +718,21 @@ def _resolve_response_language(response_language: str) -> str:
 def _parse_date_field(
     raw_value: str,
     field_name: str,
-    family_timezone: str,
-    family_today: datetime.date | None = None,
+    workspace_timezone: str,
+    workspace_today: datetime.date | None = None,
 ) -> datetime.date:
     """Парсит date-поле через единый runtime helper."""
-    if family_today is None:
+    if workspace_today is None:
         return parse_runtime_date(
             value=raw_value,
-            timezone=family_timezone,
+            timezone=workspace_timezone,
             field_name=field_name,
         )
     return parse_runtime_date(
         value=raw_value,
-        timezone=family_timezone,
+        timezone=workspace_timezone,
         field_name=field_name,
-        family_today=family_today,
+        family_today=workspace_today,
     )
 
 

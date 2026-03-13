@@ -3,6 +3,7 @@
 
 Записывает все изменения сущностей (create, update, delete) с указанием
 кто, когда и что изменил. diff_json хранит детали изменений в формате JSON.
+Поддерживает привязку к workspace (мультитенантность).
 """
 
 import datetime
@@ -29,7 +30,8 @@ class ChangeLog(Base):
         entity_type: тип сущности (pet, vaccination, weight_record и т.д.)
         entity_id: ID изменённой сущности
         action: тип действия (create, update, delete)
-        actor_id: FK -> family_member.id (кто выполнил, nullable)
+        actor_id: Telegram user ID (кто выполнил, nullable)
+        workspace_id: FK -> workspace.id (в каком workspace произошло, nullable)
         changed_at: дата изменения (timezone-aware, server_default)
         diff_json: детали изменений в формате JSON (nullable)
 
@@ -53,7 +55,11 @@ class ChangeLog(Base):
     action: Mapped[str] = mapped_column(String(20))
     actor_id: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
+        nullable=True,
+        default=None,
+    )
+    workspace_id: Mapped[int | None] = mapped_column(
+        ForeignKey("workspace.id", ondelete="CASCADE"),
         nullable=True,
         default=None,
     )

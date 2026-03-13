@@ -34,7 +34,7 @@ class DietRecord(Base):
         start_date: дата начала рациона, NOT NULL
         end_date: дата окончания рациона (nullable)
         notes: дополнительные заметки (nullable)
-        recorded_by: FK -> family_member.id (кто записал, nullable), CASCADE
+        recorded_by: Telegram user ID (кто записал, nullable)
         created_at: дата создания (timezone-aware, server_default)
 
     Индексы:
@@ -68,7 +68,6 @@ class DietRecord(Base):
     )
     recorded_by: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
         nullable=True,
         default=None,
     )
@@ -87,7 +86,7 @@ class FeedingEntry(Base):
         fed_at: дата и время кормления (timezone-aware), NOT NULL
         food_description: описание еды, NOT NULL, до 300 символов
         portion_size: размер порции (nullable), до 50 символов
-        recorded_by: FK -> family_member.id (кто записал, nullable), CASCADE
+        recorded_by: Telegram user ID (кто записал, nullable)
         created_at: дата создания (timezone-aware, server_default)
 
     Индексы:
@@ -111,7 +110,6 @@ class FeedingEntry(Base):
     )
     recorded_by: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
         nullable=True,
         default=None,
     )

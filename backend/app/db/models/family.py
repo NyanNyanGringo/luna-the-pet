@@ -1,261 +1,26 @@
 """
-Модели семейного домохозяйства: Family, FamilyMember, FamilySettings,
-FamilyInvite, OAuthCredential и M2M-таблица family_pet.
+Модели, пережившие переход на workspace-centric архитектуру.
 
-Family — singleton домохозяйства, к которому привязаны все остальные сущности.
-FamilyMember.id — Telegram user ID (BigInteger, НЕ autoincrement).
+Файл содержит только OAuthCredential и ConversationState.
+Legacy-таблицы Family/FamilyMember/FamilySettings удалены из runtime ORM.
 """
 
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING
 
 from backend.app.db.base import Base
 from sqlalchemy import (
     BigInteger,
-    Boolean,
-    Column,
     DateTime,
     ForeignKey,
     Integer,
     String,
-    Table,
     Text,
     UniqueConstraint,
     func,
-    true,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-if TYPE_CHECKING:
-    from backend.app.db.models.pet import Pet
-
-
-# ── M2M ассоциативная таблица: участник <-> питомец ──────────────────────────
-
-family_pet = Table(
-    "family_pet",
-    Base.metadata,
-    Column(
-        "family_member_id",
-        BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
-    Column(
-        "pet_id",
-        Integer,
-        ForeignKey("pet.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
-)
-
-
-# ── Family (singleton домохозяйства) ────────────────────────────────────────
-
-
-class Family(Base):
-    """Домохозяйство (singleton). Корневая сущность для всех связей.
-
-    Поля:
-        id: автоинкрементный PK
-        singleton_key: константный ключ singleton (всегда True, UNIQUE)
-        created_at: дата создания (timezone-aware, server_default)
-
-    Связи:
-        members: список участников семьи
-        pets: список питомцев семьи
-        settings: настройки семьи (one-to-one)
-        invites: список инвайтов
-        oauth_credentials: OAuth-токены
-    """
-
-    __tablename__ = "family"
-    __table_args__ = (UniqueConstraint("singleton_key", name="uq_family_singleton"),)
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    singleton_key: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=True,
-        server_default=true(),
-    )
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-    )
-
-    # --- Связи ---
-    members: Mapped[list[FamilyMember]] = relationship(
-        back_populates="family",
-    )
-    pets: Mapped[list[Pet]] = relationship(
-        back_populates="family",
-    )
-    settings: Mapped[FamilySettings | None] = relationship(
-        back_populates="family",
-        uselist=False,
-    )
-    invites: Mapped[list[FamilyInvite]] = relationship(
-        back_populates="family",
-    )
-    oauth_credentials: Mapped[list[OAuthCredential]] = relationship(
-        back_populates="family",
-    )
-
-
-# ── FamilyMember (участник семьи) ───────────────────────────────────────────
-
-
-class FamilyMember(Base):
-    """Участник семьи. PK — Telegram user ID (BigInteger, НЕ autoincrement).
-
-    Поля:
-        id: Telegram user ID (BigInteger PK)
-        first_name: имя из Telegram, NOT NULL, до 100 символов
-        username: Telegram username, nullable, до 100 символов
-        is_authorized: авторизован ли пользователь (default True)
-        created_at: дата добавления (timezone-aware, server_default)
-        family_id: FK -> family.id
-
-    Связи:
-        family: обратная связь с Family
-        pets: M2M через family_pet
-    """
-
-    __tablename__ = "family_member"
-
-    id: Mapped[int] = mapped_column(
-        BigInteger,
-        primary_key=True,
-        autoincrement=False,
-    )
-    first_name: Mapped[str] = mapped_column(String(100))
-    username: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-        default=None,
-    )
-    is_authorized: Mapped[bool] = mapped_column(
-        Boolean,
-        default=True,
-    )
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-    )
-    family_id: Mapped[int] = mapped_column(
-        ForeignKey("family.id", ondelete="CASCADE"),
-    )
-
-    # --- Связи ---
-    family: Mapped[Family] = relationship(back_populates="members")
-    pets: Mapped[list[Pet]] = relationship(
-        secondary=family_pet,
-        back_populates="members",
-    )
-
-
-# ── FamilySettings (настройки семьи) ────────────────────────────────────────
-
-
-class FamilySettings(Base):
-    """Настройки семьи: таймзона и локаль дат.
-
-    Поля:
-        id: автоинкрементный PK
-        family_id: FK -> family.id, unique (one-to-one)
-        timezone: IANA-таймзона (default "UTC")
-        date_locale: локаль дат (nullable)
-
-    Связи:
-        family: обратная связь с Family
-    """
-
-    __tablename__ = "family_settings"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    family_id: Mapped[int] = mapped_column(
-        ForeignKey("family.id", ondelete="CASCADE"),
-        unique=True,
-    )
-    timezone: Mapped[str] = mapped_column(
-        String(50),
-        default="UTC",
-    )
-    date_locale: Mapped[str | None] = mapped_column(
-        String(20),
-        nullable=True,
-        default=None,
-    )
-
-    # --- Связи ---
-    family: Mapped[Family] = relationship(back_populates="settings")
-
-
-# ── FamilyInvite (инвайт / одноразовый код) ─────────────────────────────────
-
-
-class FamilyInvite(Base):
-    """Инвайт для присоединения к семье.
-
-    Поля:
-        id: автоинкрементный PK
-        family_id: FK -> family.id
-        invite_code: уникальный код приглашения, NOT NULL
-        created_by: FK -> family_member.id (кто создал)
-        expires_at: срок действия (timezone-aware), NOT NULL
-        revoked_at: дата отзыва (nullable)
-        used_by: FK -> family_member.id (кто использовал, nullable)
-        used_at: дата использования (nullable)
-        status: текущий статус (default "active")
-
-    Связи:
-        family: обратная связь с Family
-    """
-
-    __tablename__ = "family_invite"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    family_id: Mapped[int] = mapped_column(
-        ForeignKey("family.id", ondelete="CASCADE"),
-    )
-    invite_code: Mapped[str] = mapped_column(
-        String(50),
-        unique=True,
-    )
-    created_by: Mapped[int] = mapped_column(
-        BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
-    )
-    expires_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-    )
-    revoked_at: Mapped[datetime.datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        default=None,
-    )
-    used_by: Mapped[int | None] = mapped_column(
-        BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
-        nullable=True,
-        default=None,
-    )
-    used_at: Mapped[datetime.datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        default=None,
-    )
-    status: Mapped[str] = mapped_column(
-        String(20),
-        default="active",
-    )
-
-    # --- Связи ---
-    family: Mapped[Family] = relationship(back_populates="invites")
-
+from sqlalchemy.orm import Mapped, mapped_column
 
 # ── OAuthCredential (OAuth-токены) ───────────────────────────────────────────
 
@@ -265,7 +30,7 @@ class OAuthCredential(Base):
 
     Поля:
         id: автоинкрементный PK
-        family_id: FK -> family.id
+        telegram_user_id: Telegram user ID владельца OAuth-токена
         provider: имя провайдера (default "openai")
         access_token_enc: зашифрованный access token, NOT NULL
         refresh_token_enc: зашифрованный refresh token, NOT NULL
@@ -275,19 +40,18 @@ class OAuthCredential(Base):
         updated_at: дата последнего обновления (timezone-aware, nullable)
 
     Ограничения:
-        UniqueConstraint: (family_id, provider) — один токен на провайдера
-
-    Связи:
-        family: обратная связь с Family
+        UniqueConstraint: (telegram_user_id, provider) — один токен провайдера
+        на пользователя
     """
 
     __tablename__ = "oauth_credential"
 
-    __table_args__ = (UniqueConstraint("family_id", "provider"),)
+    __table_args__ = (UniqueConstraint("telegram_user_id", "provider"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    family_id: Mapped[int] = mapped_column(
-        ForeignKey("family.id", ondelete="CASCADE"),
+    telegram_user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
     )
     provider: Mapped[str] = mapped_column(
         String(50),
@@ -312,37 +76,47 @@ class OAuthCredential(Base):
         default=None,
     )
 
-    # --- Связи ---
-    family: Mapped[Family] = relationship(
-        back_populates="oauth_credentials",
-    )
-
 
 # ── ConversationState (состояние диалога) ─────────────────────────────────
 
 
 class ConversationState(Base):
-    """Состояние диалога пользователя с ботом.
+    """Состояние диалога пользователя с ботом в контексте workspace.
 
-    PK — Telegram user ID (BigInteger, НЕ autoincrement), совпадает
-    с FamilyMember.id. Хранит контекст текущей сессии: ID последнего
-    ответа, счётчик ходов и краткое содержание.
+    Хранит контекст текущей сессии: ID последнего ответа, счётчик ходов
+    и краткое содержание. Привязан к паре (telegram_user_id, workspace_id).
 
     Поля:
-        user_id: Telegram user ID, PK, FK -> family_member.id, CASCADE
+        id: автоинкрементный PK
+        telegram_user_id: Telegram user ID (BigInteger, NOT NULL)
+        workspace_id: FK -> workspace.id, NOT NULL
         last_response_id: ID последнего ответа от LLM (nullable), до 200 символов
         turn_count: количество ходов в сессии (default 0)
         session_summary: краткое содержание сессии (nullable)
         updated_at: дата последнего обновления (timezone-aware, server_default)
+
+    Ограничения:
+        UniqueConstraint: (telegram_user_id, workspace_id)
     """
 
     __tablename__ = "conversation_state"
 
-    user_id: Mapped[int] = mapped_column(
+    __table_args__ = (
+        UniqueConstraint(
+            "telegram_user_id",
+            "workspace_id",
+            name="uq_conversation_state_user_workspace",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    telegram_user_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("family_member.id", ondelete="CASCADE"),
-        primary_key=True,
-        autoincrement=False,
+        nullable=False,
+    )
+    workspace_id: Mapped[int] = mapped_column(
+        ForeignKey("workspace.id"),
+        nullable=False,
     )
     last_response_id: Mapped[str | None] = mapped_column(
         String(200),

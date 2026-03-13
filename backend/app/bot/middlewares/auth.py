@@ -1,33 +1,29 @@
 """
-Middleware: проверка авторизации FamilyMember.
+Middleware группового workspace-контекста.
 
-Пропускает команды из whitelist (например, /start) без проверки.
-Для остальных сообщений — ищет пользователя в БД и проверяет is_authorized.
+Для групповых сообщений находит активный workspace по chat_id,
+лениво добавляет/реактивирует участника и прокидывает в handler data:
+- workspace: Workspace
+- member: WorkspaceMember
 """
 
 import inspect
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any, cast
+from typing import Any
 
 from aiogram import BaseMiddleware
+from aiogram.enums import ChatType
 from aiogram.types import TelegramObject
-from backend.app.db.models.family import FamilyMember
-from sqlalchemy import select
+from backend.app.services import workspace_service
 
 logger = logging.getLogger(__name__)
 
-# Команды, которые разрешены без проверки авторизации
-WHITELIST_COMMANDS = frozenset({"/start", "/help"})
+_GROUP_CHAT_TYPES = {ChatType.GROUP, ChatType.SUPERGROUP}
 
 
 class AuthMiddleware(BaseMiddleware):
-    """Middleware проверки авторизации пользователя по FamilyMember.is_authorized.
-
-    Команды из WHITELIST_COMMANDS (/start, /help) проходят без проверки.
-    Если пользователь не найден в БД или is_authorized=False — хендлер не вызывается,
-    пользователь получает сообщение об отказе.
-    """
+    """Подготавливает workspace/member-контекст для group handlers."""
 
     async def __call__(
         self,
@@ -35,94 +31,49 @@ class AuthMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
-        """Проверяет авторизацию перед передачей в хендлер.
-
-        Аргументы:
-            handler: следующий обработчик в цепочке
-            event: входящее событие Telegram
-            data: словарь данных хендлера
-                (ожидается ключ 'session' от DbSessionMiddleware)
-
-        Возвращает:
-            Any: результат хендлера (если авторизация пройдена) или None
-
-        Побочные эффекты:
-            Отправляет сообщение об отказе неавторизованным пользователям.
-        """
-        if _is_whitelisted_command(event):
+        """Ищет активный workspace, добавляет участника и вызывает handler."""
+        if not _is_group_message_event(event):
             return await handler(event, data)
 
-        member = await _lookup_member(event, data)
+        session = data["session"]
+        chat = event.chat
+        user = event.from_user
+        workspace = await workspace_service.get_workspace_by_chat_id(session, chat.id)
 
-        if member is None or not member.is_authorized:
-            await _send_rejection(event)
+        if workspace is None or not workspace.is_active:
+            await _send_rejection(
+                event,
+                "Этот чат ещё не подключён к workspace. Добавьте бота заново.",
+            )
             return None
 
+        member = await workspace_service.add_or_reactivate_member(
+            session=session,
+            workspace_id=workspace.id,
+            telegram_user_id=user.id,
+            username=user.username,
+            first_name=user.first_name,
+        )
+        data["workspace"] = workspace
+        data["member"] = member
         return await handler(event, data)
 
 
-def _is_whitelisted_command(event: TelegramObject) -> bool:
-    """Проверяет, является ли событие командой из whitelist.
-
-    Аргументы:
-        event: входящее событие Telegram
-
-    Возвращает:
-        bool: True если команда в whitelist (/start, /help), включая deep link
-    """
-    text = getattr(event, "text", None)
-    if text is None:
+def _is_group_message_event(event: TelegramObject) -> bool:
+    """Проверяет, что событие — сообщение из group/supergroup."""
+    chat = getattr(event, "chat", None)
+    user = getattr(event, "from_user", None)
+    if chat is None or user is None:
         return False
-
-    # Извлекаем саму команду (без аргументов, например "/start invite_abc" -> "/start")
-    command = text.split()[0] if text else ""
-    return command in WHITELIST_COMMANDS
+    return chat.type in _GROUP_CHAT_TYPES
 
 
-async def _lookup_member(
-    event: TelegramObject,
-    data: dict[str, Any],
-) -> FamilyMember | None:
-    """Ищет FamilyMember в БД по Telegram user ID из события.
-
-    Аргументы:
-        event: событие Telegram с from_user.id
-        data: словарь данных с ключом 'session'
-
-    Возвращает:
-        FamilyMember | None: найденный участник или None
-    """
-    from_user = getattr(event, "from_user", None)
-    if from_user is None:
-        logger.warning("Событие без from_user — отклоняем")
-        return None
-
-    session = data["session"]
-    telegram_user_id = from_user.id
-
-    query = select(FamilyMember).where(FamilyMember.id == telegram_user_id)
-    result = await session.execute(query)
-    return cast(FamilyMember | None, result.scalar_one_or_none())
-
-
-async def _send_rejection(event: TelegramObject) -> None:
-    """Отправляет пользователю сообщение об отказе в доступе.
-
-    Аргументы:
-        event: событие Telegram (должно поддерживать метод answer)
-
-    Побочные эффекты:
-        Вызывает event.answer() с текстом отказа.
-        Если event не поддерживает answer — молча пропускает.
-    """
+async def _send_rejection(event: TelegramObject, text: str) -> None:
+    """Отправляет ответ пользователю, если событие поддерживает answer()."""
     answer_method = getattr(event, "answer", None)
     if answer_method is None or not callable(answer_method):
         return
-
-    # Проверяем, что answer — корутинная функция (async)
     if not inspect.iscoroutinefunction(answer_method):
-        logger.debug("event.answer не является async-методом, пропускаем")
         return
-
-    await answer_method("Доступ запрещён. Обратитесь к администратору семьи.")
-    logger.info("Доступ запрещён для пользователя")
+    await answer_method(text)
+    logger.info("Запрос отклонён middleware: %s", text)

@@ -3,7 +3,7 @@
   "checkpoint_id": "be7d6b934817",
   "strategy": "manual-commit",
   "branch": "003-group-only-mode",
-  "checkpoints_count": 14,
+  "checkpoints_count": 15,
   "files_touched": [
     "backend/alembic/versions/2026-03-12_a1b2c3d4e5f6_add_workspace_models.py",
     "backend/app/agent/brain.py",
@@ -93,13 +93,20 @@
       "context": "/be/7d6b934817/6/context.md",
       "content_hash": "/be/7d6b934817/6/content_hash.txt",
       "prompt": "/be/7d6b934817/6/prompt.txt"
+    },
+    {
+      "metadata": "/be/7d6b934817/7/metadata.json",
+      "transcript": "/be/7d6b934817/7/full.jsonl",
+      "context": "/be/7d6b934817/7/context.md",
+      "content_hash": "/be/7d6b934817/7/content_hash.txt",
+      "prompt": "/be/7d6b934817/7/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 4370,
-    "cache_creation_tokens": 1097696,
-    "cache_read_tokens": 12074571,
-    "output_tokens": 102739,
-    "api_call_count": 155
+    "input_tokens": 4386,
+    "cache_creation_tokens": 1162877,
+    "cache_read_tokens": 12850637,
+    "output_tokens": 110336,
+    "api_call_count": 170
   }
 }

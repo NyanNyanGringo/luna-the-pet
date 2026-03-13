@@ -3,7 +3,7 @@
   "checkpoint_id": "be7d6b934817",
   "strategy": "manual-commit",
   "branch": "003-group-only-mode",
-  "checkpoints_count": 9,
+  "checkpoints_count": 11,
   "files_touched": [
     "backend/alembic/versions/2026-03-12_a1b2c3d4e5f6_add_workspace_models.py",
     "backend/app/agent/brain.py",
@@ -28,6 +28,7 @@
     "backend/tests/unit/test_family_service.py",
     "backend/tests/unit/test_group_events.py",
     "backend/tests/unit/test_handlers_start.py",
+    "backend/tests/unit/test_invite_command.py",
     "backend/tests/unit/test_main_lifecycle.py",
     "backend/tests/unit/test_models.py",
     "backend/tests/unit/test_private_catch_all.py",
@@ -78,13 +79,20 @@
       "context": "/be/7d6b934817/4/context.md",
       "content_hash": "/be/7d6b934817/4/content_hash.txt",
       "prompt": "/be/7d6b934817/4/prompt.txt"
+    },
+    {
+      "metadata": "/be/7d6b934817/5/metadata.json",
+      "transcript": "/be/7d6b934817/5/full.jsonl",
+      "context": "/be/7d6b934817/5/context.md",
+      "content_hash": "/be/7d6b934817/5/content_hash.txt",
+      "prompt": "/be/7d6b934817/5/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 4285,
-    "cache_creation_tokens": 834499,
-    "cache_read_tokens": 5372611,
-    "output_tokens": 68547,
-    "api_call_count": 83
+    "input_tokens": 4308,
+    "cache_creation_tokens": 949663,
+    "cache_read_tokens": 6070140,
+    "output_tokens": 75082,
+    "api_call_count": 100
   }
 }

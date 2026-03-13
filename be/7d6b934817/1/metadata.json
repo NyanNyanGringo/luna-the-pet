@@ -1,9 +1,11 @@
 {
   "cli_version": "0.4.5",
   "checkpoint_id": "be7d6b934817",
+  "session_id": "2a3fa1c6-198f-4cf9-a1f8-0ec605fbba9f",
   "strategy": "manual-commit",
+  "created_at": "2026-03-13T16:31:18.195235Z",
   "branch": "003-group-only-mode",
-  "checkpoints_count": 4,
+  "checkpoints_count": 3,
   "files_touched": [
     "backend/alembic/versions/2026-03-12_a1b2c3d4e5f6_add_workspace_models.py",
     "backend/app/agent/brain.py",
@@ -33,27 +35,24 @@
     "backend/tests/unit/test_workspace_service.py",
     "specs/003-group-only-mode/tasks.md"
   ],
-  "sessions": [
-    {
-      "metadata": "/be/7d6b934817/0/metadata.json",
-      "transcript": "/be/7d6b934817/0/full.jsonl",
-      "context": "/be/7d6b934817/0/context.md",
-      "content_hash": "/be/7d6b934817/0/content_hash.txt",
-      "prompt": "/be/7d6b934817/0/prompt.txt"
-    },
-    {
-      "metadata": "/be/7d6b934817/1/metadata.json",
-      "transcript": "/be/7d6b934817/1/full.jsonl",
-      "context": "/be/7d6b934817/1/context.md",
-      "content_hash": "/be/7d6b934817/1/content_hash.txt",
-      "prompt": "/be/7d6b934817/1/prompt.txt"
-    }
-  ],
+  "agent": "Claude Code",
+  "turn_id": "68e9932696de",
+  "transcript_identifier_at_start": "ee768f15-925d-4e58-822a-f1706c9d3bed",
   "token_usage": {
-    "input_tokens": 53,
-    "cache_creation_tokens": 574006,
-    "cache_read_tokens": 3108938,
-    "output_tokens": 30949,
-    "api_call_count": 41
-  }
+    "input_tokens": 46,
+    "cache_creation_tokens": 546268,
+    "cache_read_tokens": 2983458,
+    "output_tokens": 29381,
+    "api_call_count": 36
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-13T16:31:16.915965Z",
+    "agent_lines": 4931,
+    "human_added": 4903,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 9834,
+    "agent_percentage": 50.142363229611554
+  },
+  "transcript_path": ".claude/projects/-Users-user-github-luna-the-dog-003/2a3fa1c6-198f-4cf9-a1f8-0ec605fbba9f.jsonl"
 }

@@ -1,0 +1,549 @@
+## User Input
+
+```text
+Реализуем Phase 3 и 4 параллельно
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+## Outline
+
+1. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must be absolute. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+
+2. **Check checklists status** (if FEATURE_DIR/checklists/ exists):
+   - Scan all checklist files in the checklists/ directory
+   - For each checklist, count:
+     - Total items: All lines matching `- [ ]` or `- [X]` or `- [x]`
+     - Completed items: Lines matching `- [X]` or `- [x]`
+     - Incomplete items: Lines matching `- [ ]`
+   - Create a status table:
+
+     ```text
+     | Checklist | Total | Completed | Incomplete | Status |
+     |-----------|-------|-----------|------------|--------|
+     | ux.md     | 12    | 12        | 0          | ✓ PASS |
+     | test.md   | 8     | 5         | 3          | ✗ FAIL |
+     | security.md | 6   | 6         | 0          | ✓ PASS |
+     ```
+
+   - Calculate overall status:
+     - **PASS**: All checklists have 0 incomplete items
+     - **FAIL**: One or more checklists have incomplete items
+
+   - **If any checklist is incomplete**:
+     - Display the table with incomplete item counts
+     - **STOP** and ask: "Some checklists are incomplete. Do you want to proceed with implementation anyway? (yes/no)"
+     - Wait for user response before continuing
+     - If user says "no" or "wait" or "stop", halt execution
+     - If user says "yes" or "proceed" or "continue", proceed to step 3
+
+   - **If all checklists are complete**:
+     - Display the table showing all checklists passed
+     - Automatically proceed to step 3
+
+3. Load and analyze the implementation context:
+   - **REQUIRED**: Read tasks.md for the complete task list and execution plan
+   - **REQUIRED**: Read plan.md for tech stack, architecture, and file structure
+   - **IF EXISTS**: Read data-model.md for entities and relationships
+   - **IF EXISTS**: Read contracts/ for API specifications and test requirements
+   - **IF EXISTS**: Read research.md for technical decisions and constraints
+   - **IF EXISTS**: Read quickstart.md for integration scenarios
+
+4. **Project Setup Verification**:
+   - **REQUIRED**: Create/verify ignore files based on actual project setup:
+
+   **Detection & Creation Logic**:
+   - Check if the following command succeeds to determine if the repository is a git repo (create/verify .gitignore if so):
+
+     ```sh
+     git rev-parse --git-dir 2>/dev/null
+     ```
+
+   - Check if Dockerfile* exists or Docker in plan.md → create/verify .dockerignore
+   - Check if .eslintrc* exists → create/verify .eslintignore
+   - Check if eslint.config.* exists → ensure the config's `ignores` entries cover required patterns
+   - Check if .prettierrc* exists → create/verify .prettierignore
+   - Check if .npmrc or package.json exists → create/verify .npmignore (if publishing)
+   - Check if terraform files (*.tf) exist → create/verify .terraformignore
+   - Check if .helmignore needed (helm charts present) → create/verify .helmignore
+
+   **If ignore file already exists**: Verify it contains essential patterns, append missing critical patterns only
+   **If ignore file missing**: Create with full pattern set for detected technology
+
+   **Common Patterns by Technology** (from plan.md tech stack):
+   - **Node.js/JavaScript/TypeScript**: `node_modules/`, `dist/`, `build/`, `*.log`, `.env*`
+   - **Python**: `__pycache__/`, `*.pyc`, `.venv/`, `venv/`, `dist/`, `*.egg-info/`
+   - **Java**: `target/`, `*.class`, `*.jar`, `.gradle/`, `build/`
+   - **C#/.NET**: `bin/`, `obj/`, `*.user`, `*.suo`, `packages/`
+   - **Go**: `*.exe`, `*.test`, `vendor/`, `*.out`
+   - **Ruby**: `.bundle/`, `log/`, `tmp/`, `*.gem`, `vendor/bundle/`
+   - **PHP**: `vendor/`, `*.log`, `*.cache`, `*.env`
+   - **Rust**: `target/`, `debug/`, `release/`, `*.rs.bk`, `*.rlib`, `*.prof*`, `.idea/`, `*.log`, `.env*`
+   - **Kotlin**: `build/`, `out/`, `.gradle/`, `.idea/`, `*.class`, `*.jar`, `*.iml`, `*.log`, `.env*`
+   - **C++**: `build/`, `bin/`, `obj/`, `out/`, `*.o`, `*.so`, `*.a`, `*.exe`, `*.dll`, `.idea/`, `*.log`, `.env*`
+   - **C**: `build/`, `bin/`, `obj/`, `out/`, `*.o`, `*.a`, `*.so`, `*.exe`, `autom4te.cache/`, `config.status`, `config.log`, `.idea/`, `*.log`, `.env*`
+   - **Swift**: `.build/`, `DerivedData/`, `*.swiftpm/`, `Packages/`
+   - **R**: `.Rproj.user/`, `.Rhistory`, `.RData`, `.Ruserdata`, `*.Rproj`, `packrat/`, `renv/`
+   - **Universal**: `.DS_Store`, `Thumbs.db`, `*.tmp`, `*.swp`, `.vscode/`, `.idea/`
+
+   **Tool-Specific Patterns**:
+   - **Docker**: `node_modules/`, `.git/`, `Dockerfile*`, `.dockerignore`, `*.log*`, `.env*`, `coverage/`
+   - **ESLint**: `node_modules/`, `dist/`, `build/`, `coverage/`, `*.min.js`
+   - **Prettier**: `node_modules/`, `dist/`, `build/`, `coverage/`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
+   - **Terraform**: `.terraform/`, `*.tfstate*`, `*.tfvars`, `.terraform.lock.hcl`
+   - **Kubernetes/k8s**: `*.secret.yaml`, `secrets/`, `.kube/`, `kubeconfig*`, `*.key`, `*.crt`
+
+5. Parse tasks.md structure and extract:
+   - **Task phases**: Setup, Tests, Core, Integration, Polish
+   - **Task dependencies**: Sequential vs parallel execution rules
+   - **Task details**: ID, description, file paths, parallel markers [P]
+   - **Execution flow**: Order and dependency requirements
+
+6. Execute implementation following the task plan:
+   - **Phase-by-phase execution**: Complete each phase before moving to the next
+   - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together  
+   - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks
+   - **File-based coordination**: Tasks affecting the same files must run sequentially
+   - **Validation checkpoints**: Verify each phase completion before proceeding
+
+7. Implementation execution rules:
+   - **Setup first**: Initialize project structure, dependencies, configuration
+   - **Tests before code**: If you need to write tests for contracts, entities, and integration scenarios
+   - **Core development**: Implement models, services, CLI commands, endpoints
+   - **Integration work**: Database connections, middleware, logging, external services
+   - **Polish and validation**: Unit tests, performance optimization, documentation
+
+8. Progress tracking and error handling:
+   - Report progress after each completed task
+   - Halt execution if any non-parallel task fails
+   - For parallel tasks [P], continue with successful tasks, report failed ones
+   - Provide clear error messages with context for debugging
+   - Suggest next steps if implementation cannot proceed
+   - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
+
+9. Completion validation:
+   - Verify all required tasks are completed
+   - Check that implemented features match the original specification
+   - Validate that tests pass and coverage meets requirements
+   - Confirm the implementation follows the technical plan
+   - Report final status with summary of completed work
+
+Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list.
+
+---
+
+==================== test session starts =====================
+platform darwin -- Python 3.12.11, pytest-9.0.2, pluggy-1.6.0 -- /Users/user/github/luna_the_dog-003/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/user/github/luna_the_dog-003/backend
+configfile: pyproject.toml
+plugins: anyio-4.12.1, asyncio-1.3.0, cov-7.0.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=session, asyncio_default_test_loop_scope=session
+collected 265 items                                          
+
+backend/tests/integration/test_regression_runtime_paths.py::test_settings_uses_only_single_root_env_file_path PASSED [  0%]
+backend/tests/integration/test_regression_runtime_paths.py::test_settings_loads_root_env_when_cwd_is_backend FAILED [  0%]
+backend/tests/integration/test_regression_runtime_paths.py::test_import_app_main_works_without_backend_package_in_sys_path FAILED [  1%]
+backend/tests/integration/test_regression_runtime_paths.py::test_settings_ignores_backend_env_when_root_env_exists FAILED [  1%]
+backend/tests/integration/test_regression_runtime_paths.py::test_fastapi_registers_openai_callback_route PASSED [  1%]
+backend/tests/integration/test_regression_runtime_paths.py::test_openai_callback_endpoint_is_not_404 PASSED [  2%]
+backend/tests/unit/test_api_deps.py::TestGetDb::test_get_db_returns_async_session PASSED [  2%]
+backend/tests/unit/test_api_deps.py::TestGetDb::test_get_db_closes_session_after_use PASSED [  3%]
+backend/tests/unit/test_api_deps.py::TestGetDb::test_get_db_closes_session_on_exception PASSED [  3%]
+backend/tests/unit/test_api_deps.py::TestGetDb::test_get_db_is_async_generator PASSED [  3%]
+backend/tests/unit/test_api_deps.py::TestGetCurrentUser::test_valid_jwt_returns_workspace_member PASSED [  4%]
+backend/tests/unit/test_api_deps.py::TestGetCurrentUser::test_member_from_inactive_workspace_raises_401 PASSED [  4%]
+backend/tests/unit/test_api_deps.py::TestGetCurrentUser::test_missing_authorization_header_raises_401 PASSED [  4%]
+backend/tests/unit/test_api_deps.py::TestGetCurrentUser::test_missing_workspace_header_raises_401 PASSED [  5%]
+backend/tests/unit/test_api_deps.py::TestGetCurrentUser::test_non_integer_workspace_header_raises_401 PASSED [  5%]
+backend/tests/unit/test_api_deps.py::TestGetCurrentUser::test_invalid_jwt_raises_401 PASSED [  6%]
+backend/tests/unit/test_api_deps.py::TestGetCurrentUser::test_expired_jwt_raises_401 PASSED [  6%]
+backend/tests/unit/test_api_deps.py::TestGetCurrentUser::test_jwt_with_nonexistent_user_raises_401 PASSED [  6%]
+backend/tests/unit/test_api_deps.py::TestGetCurrentUser::test_jwt_without_sub_claim_raises_401 PASSED [  7%]
+backend/tests/unit/test_api_deps.py::TestGetCurrentUserDependencyContract::test_get_current_user_uses_header_and_depends_in_signature PASSED [  7%]
+backend/tests/unit/test_api_deps.py::TestGetCurrentUserDependencyContract::test_get_current_user_can_be_used_as_fastapi_dependency PASSED [  7%]
+backend/tests/unit/test_audit_service.py::TestAuditService::test_log_change_persists_workspace_context PASSED [  8%]
+backend/tests/unit/test_bot_framework.py::TestCreateDispatcher::test_dispatcher_has_private_and_group_root_routers PASSED [  8%]
+backend/tests/unit/test_bot_framework.py::TestCreateDispatcher::test_private_router_contains_start_child PASSED [  9%]
+backend/tests/unit/test_bot_framework.py::TestCreateDispatcher::test_group_router_contains_runtime_children PASSED [  9%]
+backend/tests/unit/test_bot_framework.py::TestCreateDispatcher::test_middlewares_registered_on_expected_levels PASSED [  9%]
+backend/tests/unit/test_bot_framework.py::TestAuthMiddleware::test_non_group_event_passes_without_workspace_lookup PASSED [ 10%]
+backend/tests/unit/test_bot_framework.py::TestAuthMiddleware::test_group_event_without_workspace_is_rejected PASSED [ 10%]
+backend/tests/unit/test_bot_framework.py::TestAuthMiddleware::test_group_event_injects_workspace_and_member PASSED [ 10%]
+backend/tests/unit/test_bot_framework.py::TestWebhookEndpoint::test_webhook_rejects_invalid_secret PASSED [ 11%]
+backend/tests/unit/test_bot_framework.py::TestWebhookEndpoint::test_start_update_processed_without_internal_exception PASSED [ 11%]
+backend/tests/unit/test_config.py::TestRequiredVariables::test_settings_loads_with_all_required_variables PASSED [ 12%]
+backend/tests/unit/test_config.py::TestRequiredVariables::test_database_url_loaded_correctly PASSED [ 12%]
+backend/tests/unit/test_config.py::TestRequiredVariables::test_telegram_bot_token_loaded_correctly PASSED [ 12%]
+backend/tests/unit/test_config.py::TestRequiredVariables::test_openai_api_key_loaded_correctly PASSED [ 13%]
+backend/tests/unit/test_config.py::TestRequiredVariables::test_missing_database_url_raises_error PASSED [ 13%]
+backend/tests/unit/test_config.py::TestRequiredVariables::test_missing_telegram_bot_token_raises_error PASSED [ 13%]
+backend/tests/unit/test_config.py::TestRequiredVariables::test_missing_openai_api_key_raises_error PASSED [ 14%]
+backend/tests/unit/test_config.py::TestDefaultValues::test_debug_defaults_to_false PASSED [ 14%]
+backend/tests/unit/test_config.py::TestDefaultValues::test_media_dir_defaults_to_data_uploads PASSED [ 15%]
+backend/tests/unit/test_config.py::TestDefaultValues::test_debug_can_be_overridden_to_true PASSED [ 15%]
+backend/tests/unit/test_config.py::TestDefaultValues::test_media_dir_can_be_overridden PASSED [ 15%]
+backend/tests/unit/test_config.py::TestOptionalFields::test_openai_oauth_client_id_is_optional PASSED [ 16%]
+backend/tests/unit/test_config.py::TestOptionalFields::test_openai_oauth_client_id_loads_when_set PASSED [ 16%]
+backend/tests/unit/test_config.py::TestOptionalFields::test_oauth_encryption_key_is_optional PASSED [ 16%]
+backend/tests/unit/test_config.py::TestOptionalFields::test_oauth_encryption_key_loads_when_set PASSED [ 17%]
+backend/tests/unit/test_config.py::TestOptionalFields::test_jwt_secret_is_optional PASSED [ 17%]
+backend/tests/unit/test_config.py::TestOptionalFields::test_jwt_secret_loads_when_set PASSED [ 18%]
+backend/tests/unit/test_config.py::TestOptionalFields::test_webhook_url_is_optional PASSED [ 18%]
+backend/tests/unit/test_config.py::TestOptionalFields::test_webhook_url_loads_when_set PASSED [ 18%]
+backend/tests/unit/test_config.py::TestOptionalFields::test_webhook_secret_is_optional PASSED [ 19%]
+backend/tests/unit/test_config.py::TestOptionalFields::test_webhook_secret_loads_when_set PASSED [ 19%]
+backend/tests/unit/test_config.py::TestFormatValidation::test_database_url_contains_asyncpg_driver PASSED [ 20%]
+backend/tests/unit/test_config.py::TestFormatValidation::test_telegram_bot_token_is_nonempty_string PASSED [ 20%]
+backend/tests/unit/test_config.py::TestFormatValidation::test_openai_api_key_is_nonempty_string PASSED [ 20%]
+backend/tests/unit/test_config.py::TestEnvironmentContracts::test_prod_without_webhook_url_raises_validation_error PASSED [ 21%]
+backend/tests/unit/test_config.py::TestEnvironmentContracts::test_dev_allows_missing_webhook_url PASSED [ 21%]
+backend/tests/unit/test_config.py::TestEnvironmentContracts::test_prod_accepts_webhook_url_when_present PASSED [ 21%]
+backend/tests/unit/test_config.py::TestEnvFileResolution::test_settings_reloads_env_file_when_app_env_changes PASSED [ 22%]
+backend/tests/unit/test_config.py::TestEnvFileResolution::test_settings_uses_dotenv_fallback_when_env_specific_file_missing PASSED [ 22%]
+backend/tests/unit/test_db_session.py::TestAsyncEngine::test_async_engine_is_created PASSED [ 23%]
+backend/tests/unit/test_db_session.py::TestAsyncEngine::test_async_engine_uses_asyncpg_driver PASSED [ 23%]
+backend/tests/unit/test_db_session.py::TestAsyncSessionMaker::test_async_session_maker_is_created PASSED [ 23%]
+backend/tests/unit/test_db_session.py::TestAsyncSessionMaker::test_session_maker_produces_async_session PASSED [ 24%]
+backend/tests/unit/test_db_session.py::TestAsyncSessionMaker::test_session_has_expire_on_commit_false PASSED [ 24%]
+backend/tests/unit/test_group_events.py::TestBotAdded::test_creates_workspace_and_adds_initiator_as_member PASSED [ 24%]
+backend/tests/unit/test_group_events.py::TestBotAdded::test_sends_welcome_message_with_group_welcome_text PASSED [ 25%]
+backend/tests/unit/test_group_events.py::TestBotAdded::test_ignores_non_group_chat PASSED [ 25%]
+backend/tests/unit/test_group_events.py::TestBotRemoved::test_deactivates_workspace PASSED [ 26%]
+backend/tests/unit/test_group_events.py::TestGroupMigration::test_calls_update_chat_id_with_correct_ids PASSED [ 26%]
+backend/tests/unit/test_group_events.py::TestGroupEventsRouter::test_migration_handler_registered PASSED [ 26%]
+backend/tests/unit/test_handlers_start.py::TestHandleStart::test_responds_with_group_instruction PASSED [ 27%]
+backend/tests/unit/test_handlers_start.py::TestHandleStart::test_start_text_contains_key_phrases PASSED [ 27%]
+backend/tests/unit/test_handlers_start.py::TestHandleHelp::test_help_contains_group_instruction PASSED [ 27%]
+backend/tests/unit/test_handlers_start.py::TestHandleHelp::test_help_contains_commands PASSED [ 28%]
+backend/tests/unit/test_main_lifecycle.py::TestLifespanBehavior::test_lifespan_dev_runs_polling_start_and_stop PASSED [ 28%]
+backend/tests/unit/test_main_lifecycle.py::TestLifespanBehavior::test_lifespan_prod_runs_webhook_setup_without_polling_stop PASSED [ 29%]
+backend/tests/unit/test_main_lifecycle.py::TestLifespanBehavior::test_lifespan_dev_closes_session_when_stop_polling_fails PASSED [ 29%]
+backend/tests/unit/test_main_lifecycle.py::TestPollingLifecycle::test_start_polling_logs_warning_in_dev_when_webhook_url_set PASSED [ 29%]
+backend/tests/unit/test_main_lifecycle.py::TestPollingLifecycle::test_stop_polling_does_not_fail_when_polling_not_started PASSED [ 30%]
+backend/tests/unit/test_main_lifecycle.py::TestAllowedUpdates::test_polling_passes_allowed_updates PASSED [ 30%]
+backend/tests/unit/test_main_lifecycle.py::TestAllowedUpdates::test_webhook_passes_allowed_updates PASSED [ 30%]
+backend/tests/unit/test_main_lifecycle.py::TestLoggingConfiguration::test_configure_logging_updates_root_level_when_handlers_exist PASSED [ 31%]
+backend/tests/unit/test_openai_auth.py::TestGetOpenAiClient::test_falls_back_to_api_key_when_no_oauth PASSED [ 31%]
+backend/tests/unit/test_openai_auth.py::TestExchangeCodeForTokens::test_upserts_credential_for_member PASSED [ 32%]
+backend/tests/unit/test_openai_auth.py::TestExchangeCodeForTokens::test_creates_separate_credentials_for_different_members PASSED [ 32%]
+backend/tests/unit/test_openai_auth.py::TestConnectAiHandler::test_connectai_builds_link_with_workspace_context PASSED [ 32%]
+backend/tests/unit/test_openai_auth.py::TestAuthCallback::test_callback_passes_workspace_id_to_exchange PASSED [ 33%]
+backend/tests/unit/test_private_catch_all.py::TestPrivateCatchAllZeroWorkspaces::test_no_workspaces_sends_start_text PASSED [ 33%]
+backend/tests/unit/test_private_catch_all.py::TestPrivateCatchAllOneWorkspace::test_one_workspace_sends_redirect PASSED [ 33%]
+backend/tests/unit/test_private_catch_all.py::TestPrivateCatchAllOneWorkspace::test_one_workspace_contains_group_only_message PASSED [ 34%]
+backend/tests/unit/test_private_catch_all.py::TestPrivateCatchAllMultipleWorkspaces::test_multiple_workspaces_lists_all PASSED [ 34%]
+backend/tests/unit/test_private_catch_all.py::TestPrivateCatchAllMultipleWorkspaces::test_multiple_workspaces_header PASSED [ 35%]
+backend/tests/unit/test_private_catch_all.py::TestPrivateCatchAllCallsWorkspaceService::test_passes_user_id_to_workspace_service PASSED [ 35%]
+backend/tests/unit/test_private_catch_all.py::TestCreatePrivateMessageRouter::test_router_created_with_name PASSED [ 35%]
+backend/tests/unit/test_private_catch_all.py::TestCreatePrivateMessageRouter::test_router_has_message_handler PASSED [ 36%]
+backend/tests/unit/test_unit_bootstrap.py::TestUnitBootstrap::test_bootstrap_overrides_external_prod_app_env PASSED [ 36%]
+backend/tests/unit/test_us1_agent.py::TestBuildSystemPrompt::test_uses_workspace_pets_and_timezone PASSED [ 36%]
+backend/tests/unit/test_us1_agent.py::TestRunAgent::test_run_agent_creates_state_with_workspace_id PASSED [ 37%]
+backend/tests/unit/test_us1_message_handler.py::TestTextHandler::test_calls_run_agent_with_workspace_id PASSED [ 37%]
+backend/tests/unit/test_us1_message_handler.py::TestVoiceHandler::test_transcribes_and_calls_agent PASSED [ 38%]
+backend/tests/unit/test_us1_migrations.py::TestUS1MigrationNoFamilySingletonDuplication::test_upgrade_has_no_family_singleton_add_ops PASSED [ 38%]
+backend/tests/unit/test_us1_migrations.py::TestUS1MigrationNoFamilySingletonDuplication::test_downgrade_has_no_family_singleton_drop_ops PASSED [ 38%]
+backend/tests/unit/test_us1_migrations.py::TestUS1MigrationRevisionChain::test_us1_revision_points_to_phase2 PASSED [ 39%]
+backend/tests/unit/test_us1_migrations.py::TestUS1MigrationRuntimeRoundtrip::test_upgrade_downgrade_upgrade_roundtrip PASSED [ 39%]
+backend/tests/unit/test_us1_models.py::TestWeightRecord::test_tablename PASSED [ 40%]
+backend/tests/unit/test_us1_models.py::TestWeightRecord::test_create_with_required_fields PASSED [ 40%]
+backend/tests/unit/test_us1_models.py::TestWeightRecord::test_create_without_nullable_fields PASSED [ 40%]
+backend/tests/unit/test_us1_models.py::TestWeightRecord::test_has_pet_id_column PASSED [ 41%]
+backend/tests/unit/test_us1_models.py::TestWeightRecord::test_has_recorded_by_column PASSED [ 41%]
+backend/tests/unit/test_us1_models.py::TestWeightRecord::test_pet_id_foreign_key PASSED [ 41%]
+backend/tests/unit/test_us1_models.py::TestWeightRecord::test_recorded_by_foreign_key PASSED [ 42%]
+backend/tests/unit/test_us1_models.py::TestWeightRecord::test_composite_index_pet_id_measured_at PASSED [ 42%]
+backend/tests/unit/test_us1_models.py::TestVaccination::test_tablename PASSED [ 43%]
+backend/tests/unit/test_us1_models.py::TestVaccination::test_create_with_required_fields PASSED [ 43%]
+backend/tests/unit/test_us1_models.py::TestVaccination::test_create_without_nullable_fields PASSED [ 43%]
+backend/tests/unit/test_us1_models.py::TestVaccination::test_create_with_all_fields PASSED [ 44%]
+backend/tests/unit/test_us1_models.py::TestVaccination::test_has_pet_id_column PASSED [ 44%]
+backend/tests/unit/test_us1_models.py::TestVaccination::test_has_recorded_by_column PASSED [ 44%]
+backend/tests/unit/test_us1_models.py::TestVaccination::test_pet_id_foreign_key PASSED [ 45%]
+backend/tests/unit/test_us1_models.py::TestVaccination::test_recorded_by_foreign_key PASSED [ 45%]
+backend/tests/unit/test_us1_models.py::TestVaccination::test_composite_index_pet_id_date PASSED [ 46%]
+backend/tests/unit/test_us1_models.py::TestVaccination::test_composite_index_pet_id_next_date PASSED [ 46%]
+backend/tests/unit/test_us1_models.py::TestMedicalRecord::test_tablename PASSED [ 46%]
+backend/tests/unit/test_us1_models.py::TestMedicalRecord::test_create_with_required_fields PASSED [ 47%]
+backend/tests/unit/test_us1_models.py::TestMedicalRecord::test_create_without_nullable_fields PASSED [ 47%]
+backend/tests/unit/test_us1_models.py::TestMedicalRecord::test_has_pet_id_column PASSED [ 47%]
+backend/tests/unit/test_us1_models.py::TestMedicalRecord::test_has_recorded_by_column PASSED [ 48%]
+backend/tests/unit/test_us1_models.py::TestMedicalRecord::test_pet_id_foreign_key PASSED [ 48%]
+backend/tests/unit/test_us1_models.py::TestMedicalRecord::test_recorded_by_foreign_key PASSED [ 49%]
+backend/tests/unit/test_us1_models.py::TestMedicalRecord::test_composite_index_pet_id_record_type PASSED [ 49%]
+backend/tests/unit/test_us1_models.py::TestMedicalRecord::test_composite_index_pet_id_date PASSED [ 49%]
+backend/tests/unit/test_us1_models.py::TestMedication::test_tablename PASSED [ 50%]
+backend/tests/unit/test_us1_models.py::TestMedication::test_create_with_required_fields PASSED [ 50%]
+backend/tests/unit/test_us1_models.py::TestMedication::test_default_is_active_true PASSED [ 50%]
+backend/tests/unit/test_us1_models.py::TestMedication::test_is_active_explicit_false PASSED [ 51%]
+backend/tests/unit/test_us1_models.py::TestMedication::test_create_without_nullable_fields PASSED [ 51%]
+backend/tests/unit/test_us1_models.py::TestMedication::test_create_with_all_fields PASSED [ 52%]
+backend/tests/unit/test_us1_models.py::TestMedication::test_has_pet_id_column PASSED [ 52%]
+backend/tests/unit/test_us1_models.py::TestMedication::test_has_recorded_by_column PASSED [ 52%]
+backend/tests/unit/test_us1_models.py::TestMedication::test_pet_id_foreign_key PASSED [ 53%]
+backend/tests/unit/test_us1_models.py::TestMedication::test_recorded_by_foreign_key PASSED [ 53%]
+backend/tests/unit/test_us1_models.py::TestMedication::test_composite_index_pet_id_is_active PASSED [ 53%]
+backend/tests/unit/test_us1_models.py::TestNote::test_tablename PASSED [ 54%]
+backend/tests/unit/test_us1_models.py::TestNote::test_create_with_required_fields PASSED [ 54%]
+backend/tests/unit/test_us1_models.py::TestNote::test_create_without_nullable_fields PASSED [ 55%]
+backend/tests/unit/test_us1_models.py::TestNote::test_has_pet_id_column PASSED [ 55%]
+backend/tests/unit/test_us1_models.py::TestNote::test_has_recorded_by_column PASSED [ 55%]
+backend/tests/unit/test_us1_models.py::TestNote::test_pet_id_foreign_key PASSED [ 56%]
+backend/tests/unit/test_us1_models.py::TestNote::test_recorded_by_foreign_key PASSED [ 56%]
+backend/tests/unit/test_us1_models.py::TestNote::test_composite_index_pet_id_created_at PASSED [ 56%]
+backend/tests/unit/test_us1_models.py::TestDietRecord::test_tablename PASSED [ 57%]
+backend/tests/unit/test_us1_models.py::TestDietRecord::test_create_with_required_fields PASSED [ 57%]
+backend/tests/unit/test_us1_models.py::TestDietRecord::test_create_without_nullable_fields PASSED [ 58%]
+backend/tests/unit/test_us1_models.py::TestDietRecord::test_create_with_all_fields PASSED [ 58%]
+backend/tests/unit/test_us1_models.py::TestDietRecord::test_has_pet_id_column PASSED [ 58%]
+backend/tests/unit/test_us1_models.py::TestDietRecord::test_has_recorded_by_column PASSED [ 59%]
+backend/tests/unit/test_us1_models.py::TestDietRecord::test_pet_id_foreign_key PASSED [ 59%]
+backend/tests/unit/test_us1_models.py::TestDietRecord::test_recorded_by_foreign_key PASSED [ 60%]
+backend/tests/unit/test_us1_models.py::TestDietRecord::test_composite_index_pet_id_end_date PASSED [ 60%]
+backend/tests/unit/test_us1_models.py::TestFeedingEntry::test_tablename PASSED [ 60%]
+backend/tests/unit/test_us1_models.py::TestFeedingEntry::test_create_with_required_fields PASSED [ 61%]
+backend/tests/unit/test_us1_models.py::TestFeedingEntry::test_create_without_nullable_fields PASSED [ 61%]
+backend/tests/unit/test_us1_models.py::TestFeedingEntry::test_create_with_all_fields PASSED [ 61%]
+backend/tests/unit/test_us1_models.py::TestFeedingEntry::test_has_pet_id_column PASSED [ 62%]
+backend/tests/unit/test_us1_models.py::TestFeedingEntry::test_has_recorded_by_column PASSED [ 62%]
+backend/tests/unit/test_us1_models.py::TestFeedingEntry::test_pet_id_foreign_key PASSED [ 63%]
+backend/tests/unit/test_us1_models.py::TestFeedingEntry::test_recorded_by_foreign_key PASSED [ 63%]
+backend/tests/unit/test_us1_models.py::TestFeedingEntry::test_composite_index_pet_id_fed_at PASSED [ 63%]
+backend/tests/unit/test_us1_models.py::TestConversationState::test_tablename PASSED [ 64%]
+backend/tests/unit/test_us1_models.py::TestConversationState::test_create_with_required_fields PASSED [ 64%]
+backend/tests/unit/test_us1_models.py::TestConversationState::test_default_turn_count_zero PASSED [ 64%]
+backend/tests/unit/test_us1_models.py::TestConversationState::test_turn_count_explicit_value PASSED [ 65%]
+backend/tests/unit/test_us1_models.py::TestConversationState::test_create_without_nullable_fields PASSED [ 65%]
+backend/tests/unit/test_us1_models.py::TestConversationState::test_create_with_all_fields PASSED [ 66%]
+backend/tests/unit/test_us1_models.py::TestConversationState::test_id_is_autoincrement_primary_key PASSED [ 66%]
+backend/tests/unit/test_us1_models.py::TestConversationState::test_has_telegram_user_id_column PASSED [ 66%]
+backend/tests/unit/test_us1_models.py::TestConversationState::test_workspace_id_foreign_key PASSED [ 67%]
+backend/tests/unit/test_us1_models.py::TestConversationState::test_has_updated_at_column PASSED [ 67%]
+backend/tests/unit/test_us1_models.py::TestEmergencyProfile::test_tablename PASSED [ 67%]
+backend/tests/unit/test_us1_models.py::TestEmergencyProfile::test_create_with_required_fields PASSED [ 68%]
+backend/tests/unit/test_us1_models.py::TestEmergencyProfile::test_create_without_nullable_fields PASSED [ 68%]
+backend/tests/unit/test_us1_models.py::TestEmergencyProfile::test_create_with_all_fields PASSED [ 69%]
+backend/tests/unit/test_us1_models.py::TestEmergencyProfile::test_has_pet_id_column PASSED [ 69%]
+backend/tests/unit/test_us1_models.py::TestEmergencyProfile::test_pet_id_foreign_key PASSED [ 69%]
+backend/tests/unit/test_us1_models.py::TestEmergencyProfile::test_pet_id_unique PASSED [ 70%]
+backend/tests/unit/test_us1_services.py::TestPetServiceWorkspaceFlow::test_create_pet_persists_workspace_id PASSED [ 70%]
+backend/tests/unit/test_us1_services.py::TestPetServiceWorkspaceFlow::test_get_workspace_pets_returns_only_active PASSED [ 70%]
+backend/tests/unit/test_us1_services.py::TestPetServiceWorkspaceFlow::test_get_pet_by_name_is_case_insensitive PASSED [ 71%]
+backend/tests/unit/test_us1_services.py::TestPetServiceWorkspaceFlow::test_resolve_pet_from_text_uses_workspace_scope PASSED [ 71%]
+backend/tests/unit/test_us1_services.py::TestPetServiceWorkspaceFlow::test_update_pet_changes_only_allowed_fields PASSED [ 72%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_upgrade_handles_non_empty_legacy_pet_and_oauth_tables PASSED [ 72%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_upgrade_enforces_non_nullable_runtime_contracts PASSED [ 72%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_upgrade_preserves_legacy_conversation_state_data PASSED [ 73%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_upgrade_deduplicates_legacy_conversation_state_conflicts PASSED [ 73%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_upgrade_fails_on_broken_legacy_conversation_state_links PASSED [ 73%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_downgrade_restores_conversation_state_rows_from_workspace_model PASSED [ 74%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_downgrade_deduplicates_workspace_conversation_state_by_policy PASSED [ 74%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_downgrade_restores_family_members_for_existing_activity PASSED [ 75%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_downgrade_backfills_and_restores_non_nullable_family_links PASSED [ 75%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_downgrade_deduplicates_oauth_provider_rows_for_legacy_unique_constraint PASSED [ 75%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_upgrade_migrates_conversation_state_data_and_preserves_updated_at PASSED [ 76%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_upgrade_deduplicates_conversation_state_with_deterministic_policy PASSED [ 76%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_upgrade_fails_for_conversation_state_without_family_member PASSED [ 76%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_upgrade_fails_for_conversation_state_without_workspace_mapping PASSED [ 77%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_downgrade_restores_conversation_state_data PASSED [ 77%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_downgrade_conversation_state_policy_for_multi_workspace_user PASSED [ 78%]
+backend/tests/unit/test_workspace_migrations.py::TestWorkspacePhase2MigrationRuntime::test_conversation_state_trigger_exists_after_upgrade_and_downgrade PASSED [ 78%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceModel::test_create_with_required_fields PASSED [ 78%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceModel::test_is_active_defaults_to_true PASSED [ 79%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceModel::test_persists_and_gets_id PASSED [ 79%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceModel::test_has_created_at PASSED [ 80%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceModel::test_read_back_from_database PASSED [ 80%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceModel::test_telegram_chat_id_unique_constraint PASSED [ 80%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceModel::test_has_members_relationship PASSED [ 81%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceModel::test_has_settings_relationship PASSED [ 81%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceMemberModel::test_create_with_required_fields PASSED [ 81%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceMemberModel::test_is_active_defaults_to_true PASSED [ 82%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceMemberModel::test_username_is_nullable PASSED [ 82%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceMemberModel::test_first_name_is_nullable PASSED [ 83%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceMemberModel::test_left_at_defaults_to_none PASSED [ 83%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceMemberModel::test_persists_and_gets_id PASSED [ 83%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceMemberModel::test_has_joined_at PASSED [ 84%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceMemberModel::test_read_back_from_database PASSED [ 84%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceMemberModel::test_unique_workspace_user_constraint PASSED [ 84%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceMemberModel::test_same_user_in_different_workspaces PASSED [ 85%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceSettingsModel::test_timezone_defaults_to_europe_moscow PASSED [ 85%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceSettingsModel::test_locale_defaults_to_ru PASSED [ 86%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceSettingsModel::test_persists_and_reads_back PASSED [ 86%]
+backend/tests/unit/test_workspace_models.py::TestWorkspaceSettingsModel::test_workspace_id_unique_constraint PASSED [ 86%]
+backend/tests/unit/test_workspace_service.py::TestGetOrCreateWorkspace::test_creates_new_workspace PASSED [ 87%]
+backend/tests/unit/test_workspace_service.py::TestGetOrCreateWorkspace::test_creates_settings_automatically PASSED [ 87%]
+backend/tests/unit/test_workspace_service.py::TestGetOrCreateWorkspace::test_returns_existing_active_workspace PASSED [ 87%]
+backend/tests/unit/test_workspace_service.py::TestGetOrCreateWorkspace::test_reactivates_inactive_workspace PASSED [ 88%]
+backend/tests/unit/test_workspace_service.py::TestGetOrCreateWorkspace::test_does_not_create_duplicate PASSED [ 88%]
+backend/tests/unit/test_workspace_service.py::TestGetOrCreateWorkspace::test_is_idempotent_under_concurrent_creation PASSED [ 89%]
+backend/tests/unit/test_workspace_service.py::TestGetOrCreateWorkspace::test_adopts_single_legacy_workspace_for_first_real_group PASSED [ 89%]
+backend/tests/unit/test_workspace_service.py::TestGetOrCreateWorkspace::test_does_not_adopt_legacy_workspace_when_real_workspace_exists PASSED [ 89%]
+backend/tests/unit/test_workspace_service.py::TestDeactivateWorkspace::test_sets_is_active_false PASSED [ 90%]
+backend/tests/unit/test_workspace_service.py::TestDeactivateWorkspace::test_does_nothing_if_not_found PASSED [ 90%]
+backend/tests/unit/test_workspace_service.py::TestReactivateWorkspace::test_sets_is_active_true PASSED [ 90%]
+backend/tests/unit/test_workspace_service.py::TestReactivateWorkspace::test_raises_if_not_found PASSED [ 91%]
+backend/tests/unit/test_workspace_service.py::TestGetWorkspaceByChatId::test_returns_existing_workspace PASSED [ 91%]
+backend/tests/unit/test_workspace_service.py::TestGetWorkspaceByChatId::test_returns_none_if_not_found PASSED [ 92%]
+backend/tests/unit/test_workspace_service.py::TestAddOrReactivateMember::test_creates_new_member PASSED [ 92%]
+backend/tests/unit/test_workspace_service.py::TestAddOrReactivateMember::test_reactivates_inactive_member PASSED [ 92%]
+backend/tests/unit/test_workspace_service.py::TestAddOrReactivateMember::test_returns_existing_active_member PASSED [ 93%]
+backend/tests/unit/test_workspace_service.py::TestAddOrReactivateMember::test_member_without_username PASSED [ 93%]
+backend/tests/unit/test_workspace_service.py::TestAddOrReactivateMember::test_is_idempotent_under_concurrent_member_creation_race PASSED [ 93%]
+backend/tests/unit/test_workspace_service.py::TestDeactivateMember::test_sets_inactive_and_left_at PASSED [ 94%]
+backend/tests/unit/test_workspace_service.py::TestDeactivateMember::test_does_nothing_if_not_found PASSED [ 94%]
+backend/tests/unit/test_workspace_service.py::TestGetUserWorkspaces::test_returns_active_workspaces PASSED [ 95%]
+backend/tests/unit/test_workspace_service.py::TestGetUserWorkspaces::test_excludes_inactive_workspaces PASSED [ 95%]
+backend/tests/unit/test_workspace_service.py::TestGetUserWorkspaces::test_excludes_inactive_members PASSED [ 95%]
+backend/tests/unit/test_workspace_service.py::TestGetUserWorkspaces::test_returns_empty_list_if_no_workspaces PASSED [ 96%]
+backend/tests/unit/test_workspace_service.py::TestGetMember::test_returns_existing_member PASSED [ 96%]
+backend/tests/unit/test_workspace_service.py::TestGetMember::test_returns_none_if_not_found PASSED [ 96%]
+backend/tests/unit/test_workspace_service.py::TestUpdateChatId::test_updates_chat_id PASSED [ 97%]
+backend/tests/unit/test_workspace_service.py::TestUpdateChatId::test_raises_if_not_found PASSED [ 97%]
+backend/tests/unit/test_workspace_service.py::TestGetTimezone::test_returns_default_europe_moscow PASSED [ 98%]
+backend/tests/unit/test_workspace_service.py::TestGetTimezone::test_raises_if_not_found PASSED [ 98%]
+backend/tests/unit/test_workspace_service.py::TestSetTimezone::test_sets_valid_timezone PASSED [ 98%]
+backend/tests/unit/test_workspace_service.py::TestSetTimezone::test_rejects_invalid_timezone PASSED [ 99%]
+backend/tests/unit/test_workspace_service.py::TestSetTimezone::test_updates_existing_timezone PASSED [ 99%]
+backend/tests/unit/test_workspace_service.py::TestSetTimezone::test_rejects_empty_timezone PASSED [100%]
+
+========================== FAILURES ==========================
+______ test_settings_loads_root_env_when_cwd_is_backend ______
+
+    def test_settings_loads_root_env_when_cwd_is_backend() -> None:
+        """Settings должен загружаться из корневых env-файлов при запуске из backend."""
+        subprocess_environment = _build_subprocess_environment()
+        result = _run_python_script(
+            "from app.config import Settings; Settings()",
+            BACKEND_WORKING_DIRECTORY,
+            subprocess_environment,
+        )
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 1, in <module>
+E           File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic_settings/main.py", line 242, in __init__
+E             super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+E           File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic/main.py", line 250, in __init__
+E             validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+E                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         pydantic_core._pydantic_core.ValidationError: 3 validation errors for Settings
+E         DATABASE_URL
+E           Field required [type=missing, input_value={'APP_ENV': 'dev'}, input_type=dict]
+E             For further information visit https://errors.pydantic.dev/2.12/v/missing
+E         TELEGRAM_BOT_TOKEN
+E           Field required [type=missing, input_value={'APP_ENV': 'dev'}, input_type=dict]
+E             For further information visit https://errors.pydantic.dev/2.12/v/missing
+E         OPENAI_API_KEY
+E           Field required [type=missing, input_value={'APP_ENV': 'dev'}, input_type=dict]
+E             For further information visit https://errors.pydantic.dev/2.12/v/missing
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/user/github/luna_the_dog-003/backend/.venv/bin/python3', '-c', 'from app.config import Settings; Settings()'], returncode=1, stdout='', stderr='Traceback (most recent call last):\n  File "<string>", line 1, in <module>\n  File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic_settings/main.py", line 242, in __init__\n    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))\n  File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic/main.py", line 250, in __init__\n    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydantic_core._pydantic_core.ValidationError: 3 validation errors for Settings\nDATABASE_URL\n  Field required [type=missing, input_value={\'APP_ENV\': \'dev\'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing\nTELEGRAM_BOT_TOKEN\n  Field required [type=missing, input_value={\'APP_ENV\': \'dev\'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing\nOPENAI_API_KEY\n  Field required [type=missing, input_value={\'APP_ENV\': \'dev\'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing\n').returncode
+
+backend/tests/integration/test_regression_runtime_paths.py:103: AssertionError
+_ test_import_app_main_works_without_backend_package_in_sys_path _
+
+    def test_import_app_main_works_without_backend_package_in_sys_path() -> None:
+        """import app.main должен работать как в uvicorn app.main:app --reload."""
+        subprocess_environment = _build_subprocess_environment()
+        result = _run_python_script(
+            "import app.main",
+            BACKEND_WORKING_DIRECTORY,
+            subprocess_environment,
+        )
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 1, in <module>
+E           File "/Users/user/github/luna_the_dog-003/backend/app/main.py", line 16, in <module>
+E             from backend.app.api.auth import auth_router
+E           File "/Users/user/github/luna_the_dog-003/backend/app/api/auth.py", line 13, in <module>
+E             from backend.app.api.deps import get_db
+E           File "/Users/user/github/luna_the_dog-003/backend/app/api/deps.py", line 13, in <module>
+E             from backend.app.db.session import async_session_maker
+E           File "/Users/user/github/luna_the_dog-003/backend/app/db/session.py", line 44, in <module>
+E             settings = Settings()
+E                        ^^^^^^^^^^
+E           File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic_settings/main.py", line 242, in __init__
+E             super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+E           File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic/main.py", line 250, in __init__
+E             validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+E                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         pydantic_core._pydantic_core.ValidationError: 3 validation errors for Settings
+E         DATABASE_URL
+E           Field required [type=missing, input_value={'APP_ENV': 'dev'}, input_type=dict]
+E             For further information visit https://errors.pydantic.dev/2.12/v/missing
+E         TELEGRAM_BOT_TOKEN
+E           Field required [type=missing, input_value={'APP_ENV': 'dev'}, input_type=dict]
+E             For further information visit https://errors.pydantic.dev/2.12/v/missing
+E         OPENAI_API_KEY
+E           Field required [type=missing, input_value={'APP_ENV': 'dev'}, input_type=dict]
+E             For further information visit https://errors.pydantic.dev/2.12/v/missing
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/user/github/luna_the_dog-003/backend/.venv/bin/python3', '-c', 'import app.main'], returncode=1, stdout='', stderr='Traceback (most recent call last):\n  File "<string>", line 1, in <module>\n  File "/Users/user/github/luna_the_dog-003/backend/app/main.py", line 16, in <module>\n    from backend.app.api.auth import auth_router\n  File "/Users/user/github/luna_the_dog-003/backend/app/api/auth.py", line 13, in <module>\n    from backend.app.api.deps import get_db\n  File "/Users/user/github/luna_the_dog-003/backend/app/api/deps.py", line 13, in <module>\n    from backend.app.db.session import async_session_maker\n  File "/Users/user/github/luna_the_dog-003/backend/app/db/session.py", line 44, in <module>\n    settings = Settings()\n               ^^^^^^^^^^\n  File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic_settings/main.py", line 242, in __init__\n    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))\n  File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic/main.py", line 250, in __init__\n    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydantic_core._pydantic_core.ValidationError: 3 validation errors for Settings\nDATABASE_URL\n  Field required [type=missing, input_value={\'APP_ENV\': \'dev\'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing\nTELEGRAM_BOT_TOKEN\n  Field required [type=missing, input_value={\'APP_ENV\': \'dev\'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing\nOPENAI_API_KEY\n  Field required [type=missing, input_value={\'APP_ENV\': \'dev\'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing\n').returncode
+
+backend/tests/integration/test_regression_runtime_paths.py:114: AssertionError
+___ test_settings_ignores_backend_env_when_root_env_exists ___
+
+    def test_settings_ignores_backend_env_when_root_env_exists() -> None:
+        """При наличии backend/.env должны использоваться только корневые env-файлы."""
+        fake_backend_token = "backend-local-env-must-be-ignored"
+        backend_env_content = "\n".join(
+            [
+                "REDACTED://user:pass@localhost:5432/backend_local",
+                f"TELEGRAM_BOT_TOKEN={fake_backend_token}",
+                "OPENAI_API_KEY=sk-backend-local-key",
+                "",
+            ]
+        )
+        original_backend_env_content = (
+            BACKEND_ENV_FILE_PATH.read_text("utf-8")
+            if BACKEND_ENV_FILE_PATH.exists()
+            else None
+        )
+        BACKEND_ENV_FILE_PATH.write_text(backend_env_content, "utf-8")
+        try:
+            subprocess_environment = _build_subprocess_environment()
+            result = _run_python_script(
+                (
+                    "from app.config import Settings; "
+                    "print(Settings().TELEGRAM_BOT_TOKEN == "
+                    f"'{fake_backend_token}')"
+                ),
+                BACKEND_WORKING_DIRECTORY,
+                subprocess_environment,
+            )
+        finally:
+            if original_backend_env_content is None:
+                BACKEND_ENV_FILE_PATH.unlink(missing_ok=True)
+            else:
+                BACKEND_ENV_FILE_PATH.write_text(original_backend_env_content, "utf-8")
+    
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 1, in <module>
+E           File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic_settings/main.py", line 242, in __init__
+E             super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+E           File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic/main.py", line 250, in __init__
+E             validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+E                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         pydantic_core._pydantic_core.ValidationError: 3 validation errors for Settings
+E         DATABASE_URL
+E           Field required [type=missing, input_value={'APP_ENV': 'dev'}, input_type=dict]
+E             For further information visit https://errors.pydantic.dev/2.12/v/missing
+E         TELEGRAM_BOT_TOKEN
+E           Field required [type=missing, input_value={'APP_ENV': 'dev'}, input_type=dict]
+E             For further information visit https://errors.pydantic.dev/2.12/v/missing
+E         OPENAI_API_KEY
+E           Field required [type=missing, input_value={'APP_ENV': 'dev'}, input_type=dict]
+E             For further information visit https://errors.pydantic.dev/2.12/v/missing
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/user/github/luna_the_dog-003/backend/.venv/bin/python3', '-c', "from app.config import Settings; print(Settings().TELEGRAM_BOT_TOKEN == 'backend-local-env-must-be-ignored')"], returncode=1, stdout='', stderr='Traceback (most recent call last):\n  File "<string>", line 1, in <module>\n  File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic_settings/main.py", line 242, in __init__\n    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))\n  File "/Users/user/github/luna_the_dog-003/backend/.venv/lib/python3.12/site-packages/pydantic/main.py", line 250, in __init__\n    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydantic_core._pydantic_core.ValidationError: 3 validation errors for Settings\nDATABASE_URL\n  Field required [type=missing, input_value={\'APP_ENV\': \'dev\'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing\nTELEGRAM_BOT_TOKEN\n  Field required [type=missing, input_value={\'APP_ENV\': \'dev\'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing\nOPENAI_API_KEY\n  Field required [type=missing, input_value={\'APP_ENV\': \'dev\'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing\n').returncode
+
+backend/tests/integration/test_regression_runtime_paths.py:151: AssertionError
+================== short test summary info ===================
+FAILED backend/tests/integration/test_regression_runtime_paths.py::test_settings_loads_root_env_when_cwd_is_backend - AssertionError: Traceback (most recent call last):
+FAILED backend/tests/integration/test_regression_runtime_paths.py::test_import_app_main_works_without_backend_package_in_sys_path - AssertionError: Traceback (most recent call last):
+FAILED backend/tests/integration/test_regression_runtime_paths.py::test_settings_ignores_backend_env_when_root_env_exists - AssertionError: Traceback (most recent call last):
+=============== 3 failed, 262 passed in 10.16s ===============

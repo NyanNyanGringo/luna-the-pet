@@ -3,7 +3,7 @@
   "checkpoint_id": "d96212d71136",
   "strategy": "manual-commit",
   "branch": "006-rejoin-admin-prompt",
-  "checkpoints_count": 5,
+  "checkpoints_count": 6,
   "files_touched": [
     "backend/app/bot/handlers/constants.py",
     "backend/app/bot/handlers/group_events.py",
@@ -33,13 +33,20 @@
       "context": "/d9/6212d71136/1/context.md",
       "content_hash": "/d9/6212d71136/1/content_hash.txt",
       "prompt": "/d9/6212d71136/1/prompt.txt"
+    },
+    {
+      "metadata": "/d9/6212d71136/2/metadata.json",
+      "transcript": "/d9/6212d71136/2/full.jsonl",
+      "context": "",
+      "content_hash": "/d9/6212d71136/2/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {
-    "input_tokens": 1752,
-    "cache_creation_tokens": 197810,
-    "cache_read_tokens": 9257305,
-    "output_tokens": 47814,
-    "api_call_count": 106
+    "input_tokens": 1762,
+    "cache_creation_tokens": 206173,
+    "cache_read_tokens": 9439341,
+    "output_tokens": 48895,
+    "api_call_count": 114
   }
 }

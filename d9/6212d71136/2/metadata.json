@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "d96212d71136",
+  "session_id": "e895c03c-a775-4980-9f80-a35fa74fbb69",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-16T14:38:56.144694Z",
+  "branch": "006-rejoin-admin-prompt",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/bot/handlers/constants.py"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "0a7e6fd35cf5",
+  "token_usage": {
+    "input_tokens": 10,
+    "cache_creation_tokens": 8363,
+    "cache_read_tokens": 182036,
+    "output_tokens": 1081,
+    "api_call_count": 8
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-16T14:38:56.112469Z",
+    "agent_lines": 16,
+    "human_added": 707,
+    "human_modified": 6,
+    "human_removed": 0,
+    "total_committed": 729,
+    "agent_percentage": 2.194787379972565
+  },
+  "transcript_path": ".claude/projects/-Users-user-github-luna-the-dog-006/e895c03c-a775-4980-9f80-a35fa74fbb69.jsonl"
+}

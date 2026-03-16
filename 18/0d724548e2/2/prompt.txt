@@ -1,0 +1,1 @@
+@.codex/skills/commit-message-skill/SKILL.md выполни инструкции из данный скилл

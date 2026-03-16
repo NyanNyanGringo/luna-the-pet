@@ -13,7 +13,7 @@ Telegram-бот с голосовым вводом, AI-агент на базе 
 - **Питание** — диетические записи, записи кормлений
 - **Семья** — регистрация через `/start`, инвайт-система (`/invite`) для добавления членов семьи
 - **Аудит** — все изменения логируются (кто, когда, что изменил)
-- **OpenAI OAuth** — подключение через `/connectai` (PKCE flow) или fallback на API-ключ
+- **OpenAI API** — бот и AI-агент работают только через `OPENAI_API_KEY`
 - **Локализация** — RU/EN, относительные даты («сегодня», «вчера»)
 
 ### Команды бота
@@ -23,7 +23,6 @@ Telegram-бот с голосовым вводом, AI-агент на базе 
 | `/start` | Регистрация семьи / присоединение по инвайт-коду |
 | `/help` | Справка |
 | `/invite` | Создать / показать инвайт-код для добавления члена семьи |
-| `/connectai` | Подключить OpenAI через OAuth (PKCE) |
 
 Любое текстовое или голосовое сообщение обрабатывается AI-агентом.
 
@@ -54,7 +53,21 @@ Telegram-бот с голосовым вводом, AI-агент на базе 
 - Telegram Bot Token (dev/prod боты через [@BotFather](https://t.me/BotFather))
 - OpenAI API Key ([platform.openai.com](https://platform.openai.com))
 
-Для локального запуска `pytest`/`pre-commit` дополнительно нужен Python 3.11+.
+Для локального запуска `pytest`/`pre-commit` дополнительно нужен Python 3.11+ и отдельное виртуальное окружение `backend/.venv`.
+
+## Локальное Python-окружение
+
+DEV и PROD работают через Docker Compose и не требуют локального `.venv`.
+Но команды `pytest`, `pre-commit`, `mypy` и локальный `alembic` в этом репозитории ожидают установленное окружение в `backend/.venv`.
+
+```bash
+cd backend
+python3.11 -m venv .venv                                                        
+source .venv/bin/activate
+pip install --upgrade pip -r requirements.txt -r requirements-dev.txt
+```
+
+После этого становятся доступны команды вида `backend/.venv/bin/pytest ...` и `backend/.venv/bin/pre-commit ...`.
 
 ## Быстрый старт
 
@@ -118,8 +131,6 @@ docker compose up -d
 | `JWT_SECRET` | — | рек. | Секрет JWT (для будущей веб-панели) |
 | `DEBUG` | `true` | `false` | Режим отладки |
 | `MEDIA_DIR` | `./data/uploads` | `/data/uploads` | Путь к загрузкам |
-| `OPENAI_OAUTH_CLIENT_ID` | — | — | OAuth Client ID для `/connectai` |
-| `OAUTH_ENCRYPTION_KEY` | — | — | Fernet-ключ для шифрования OAuth-токенов |
 
 ## Команды разработки
 
@@ -179,7 +190,7 @@ backend/
       middlewares/  # DB-сессия, авторизация
     db/models/      # SQLAlchemy: family, pet, health, nutrition, audit
     scheduler/      # APScheduler — напоминания
-    services/       # Бизнес-логика: pet, health, nutrition, family, audit, openai_auth
+    services/       # Бизнес-логика: pet, health, nutrition, family, audit
     config.py       # Настройки (APP_ENV, динамическая загрузка env-файлов)
     main.py         # FastAPI lifespan (polling/webhook switching)
   alembic/          # Миграции БД

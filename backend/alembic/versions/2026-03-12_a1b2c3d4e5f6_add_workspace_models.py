@@ -2,12 +2,11 @@
 
 Создаёт таблицы workspace, workspace_member, workspace_settings.
 Обновляет pet (family_id → workspace_id), conversation_state (полная
-реструктуризация), oauth_credential (family_id → telegram_user_id),
-change_log (+ workspace_id), а также снимает legacy FK на family_member
-в health/nutrition/audit.
+реструктуризация), change_log (+ workspace_id), а также снимает legacy FK на
+family_member в health/nutrition/audit.
 Удаляет family_invite, family_pet, family_settings, family_member, family.
 
-Для legacy-БД сценарий делает backfill перед включением NOT NULL в pet/oauth.
+Для legacy-БД сценарий делает backfill перед включением NOT NULL в pet.
 
 Revision ID: a1b2c3d4e5f6
 Revises: d4e6c9b19f3a
@@ -35,7 +34,6 @@ def upgrade() -> None:
     """Upgrade schema."""
     _create_workspace_tables()
     _backfill_workspace_tables_from_legacy_families()
-    _update_oauth_credential_table()
     _update_pet_table()
     _rebuild_conversation_state()
     _update_change_log()
@@ -52,7 +50,6 @@ def downgrade() -> None:
     _restore_change_log()
     _restore_conversation_state()
     _restore_pet_table()
-    _restore_oauth_credential_table()
     _drop_workspace_tables()
 
 
@@ -183,60 +180,6 @@ def _backfill_workspace_tables_from_legacy_families() -> None:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Upgrade: обновление существующих таблиц
 # ═══════════════════════════════════════════════════════════════════════════════
-
-
-def _update_oauth_credential_table() -> None:
-    """Заменяет family_id → telegram_user_id в таблице oauth_credential."""
-    bind = op.get_bind()
-    op.add_column(
-        "oauth_credential",
-        sa.Column("telegram_user_id", sa.BigInteger(), nullable=True),
-    )
-    bind.execute(
-        sa.text(
-            """
-            WITH family_user AS (
-                SELECT
-                    family.id AS family_id,
-                    COALESCE(
-                        MIN(family_member.id),
-                        CAST(-CAST(:chat_offset AS BIGINT) - family.id AS BIGINT)
-                    ) AS telegram_user_id
-                FROM family
-                LEFT JOIN family_member ON family_member.family_id = family.id
-                GROUP BY family.id
-            )
-            UPDATE oauth_credential
-            SET telegram_user_id = family_user.telegram_user_id
-            FROM family_user
-            WHERE oauth_credential.family_id = family_user.family_id
-              AND oauth_credential.telegram_user_id IS NULL
-            """
-        ),
-        {"chat_offset": LEGACY_WORKSPACE_CHAT_ID_OFFSET},
-    )
-    op.alter_column(
-        "oauth_credential",
-        "telegram_user_id",
-        existing_type=sa.BigInteger(),
-        nullable=False,
-    )
-    op.create_unique_constraint(
-        op.f("uq_oauth_credential_telegram_user_id"),
-        "oauth_credential",
-        ["telegram_user_id", "provider"],
-    )
-    op.drop_constraint(
-        "fk_oauth_credential_family_id_family",
-        "oauth_credential",
-        type_="foreignkey",
-    )
-    op.drop_constraint(
-        op.f("uq_oauth_credential_family_id"),
-        "oauth_credential",
-        type_="unique",
-    )
-    op.drop_column("oauth_credential", "family_id")
 
 
 def _update_pet_table() -> None:
@@ -810,54 +753,10 @@ def _backfill_family_id_with_singleton(table_name: str) -> None:
             WHERE family_id IS NULL
             """
         )
-    elif table_name == "oauth_credential":
-        query = sa.text(
-            """
-            UPDATE oauth_credential
-            SET family_id = (
-                SELECT id FROM family
-                WHERE singleton_key = true
-                LIMIT 1
-            )
-            WHERE family_id IS NULL
-            """
-        )
     else:
         raise ValueError(f"Unsupported table for family_id backfill: {table_name}")
 
     bind.execute(query)
-
-
-def _deduplicate_oauth_credentials_by_provider() -> None:
-    """Оставляет одну oauth_credential на provider для legacy unique."""
-    bind = op.get_bind()
-    # В downgrade все записи получают один family_id, поэтому старый unique
-    # (family_id, provider) требует дедупликации provider-коллизий заранее.
-    bind.execute(
-        sa.text(
-            """
-            WITH ranked_credentials AS (
-                SELECT
-                    id,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY provider
-                        ORDER BY
-                            updated_at DESC NULLS LAST,
-                            expires_at DESC NULLS LAST,
-                            created_at DESC,
-                            id DESC
-                    ) AS row_number
-                FROM oauth_credential
-            )
-            DELETE FROM oauth_credential
-            WHERE id IN (
-                SELECT id
-                FROM ranked_credentials
-                WHERE row_number > 1
-            )
-            """
-        )
-    )
 
 
 def _restore_change_log() -> None:
@@ -1001,41 +900,6 @@ def _restore_pet_table() -> None:
         ["created_by"],
         ["id"],
         ondelete="CASCADE",
-    )
-
-
-def _restore_oauth_credential_table() -> None:
-    """Восстанавливает family_id в oauth_credential."""
-    op.add_column(
-        "oauth_credential",
-        sa.Column("family_id", sa.Integer(), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_oauth_credential_family_id_family",
-        "oauth_credential",
-        "family",
-        ["family_id"],
-        ["id"],
-        ondelete="CASCADE",
-    )
-    _backfill_family_id_with_singleton("oauth_credential")
-    op.alter_column(
-        "oauth_credential",
-        "family_id",
-        existing_type=sa.Integer(),
-        nullable=False,
-    )
-    op.drop_constraint(
-        op.f("uq_oauth_credential_telegram_user_id"),
-        "oauth_credential",
-        type_="unique",
-    )
-    op.drop_column("oauth_credential", "telegram_user_id")
-    _deduplicate_oauth_credentials_by_provider()
-    op.create_unique_constraint(
-        op.f("uq_oauth_credential_family_id"),
-        "oauth_credential",
-        ["family_id", "provider"],
     )
 
 

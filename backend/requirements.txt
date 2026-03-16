@@ -27,10 +27,6 @@ pydantic-settings>=2.7.0
 pydub>=0.25.1
 audioop-lts>=0.2.1; python_version >= "3.13"  # Нужен только там, где удалён stdlib audioop
 
-# --- HTTP-клиент ---
-httpx>=0.28.0
-
-# --- Аутентификация и криптография ---
+# --- Аутентификация ---
 python-jose[cryptography]>=3.3.0
 python-multipart>=0.0.18
-cryptography>=44.0.0

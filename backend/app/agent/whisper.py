@@ -23,8 +23,7 @@ _WHISPER_MODEL = "gpt-4o-mini-transcribe"
 async def get_whisper_client() -> AsyncOpenAI:
     """Возвращает AsyncOpenAI клиент для Whisper API.
 
-    Использует API key из конфигурации (без OAuth, т.к. Whisper
-    не привязан к конкретной семье).
+    Использует API key из конфигурации.
 
     Возвращает:
         AsyncOpenAI: клиент для Whisper API

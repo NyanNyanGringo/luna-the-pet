@@ -4,7 +4,7 @@
 Проверяет:
 - Загрузку обязательных переменных окружения
 - Значения по умолчанию (DEBUG, MEDIA_DIR)
-- Опциональные поля (OAuth, JWT, Webhook)
+- Опциональные поля (JWT, Webhook)
 - Валидацию формата DATABASE_URL и токенов
 
 Все тесты используют monkeypatch для изоляции от реального окружения.
@@ -163,44 +163,6 @@ class TestDefaultValues:
 
 class TestOptionalFields:
     """Тесты опциональных полей конфигурации."""
-
-    def test_openai_oauth_client_id_is_optional(
-        self,
-        minimal_env: None,
-    ) -> None:
-        """OPENAI_OAUTH_CLIENT_ID может отсутствовать (None по умолчанию)."""
-        settings = Settings()
-        assert settings.OPENAI_OAUTH_CLIENT_ID is None
-
-    def test_openai_oauth_client_id_loads_when_set(
-        self,
-        minimal_env: None,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """OPENAI_OAUTH_CLIENT_ID загружается при наличии в окружении."""
-        client_id = "test-oauth-client-id"
-        monkeypatch.setenv("OPENAI_OAUTH_CLIENT_ID", client_id)
-        settings = Settings()
-        assert client_id == settings.OPENAI_OAUTH_CLIENT_ID
-
-    def test_oauth_encryption_key_is_optional(
-        self,
-        minimal_env: None,
-    ) -> None:
-        """OAUTH_ENCRYPTION_KEY может отсутствовать (None по умолчанию)."""
-        settings = Settings()
-        assert settings.OAUTH_ENCRYPTION_KEY is None
-
-    def test_oauth_encryption_key_loads_when_set(
-        self,
-        minimal_env: None,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """OAUTH_ENCRYPTION_KEY загружается при наличии в окружении."""
-        encryption_key = "test-fernet-key-base64"
-        monkeypatch.setenv("OAUTH_ENCRYPTION_KEY", encryption_key)
-        settings = Settings()
-        assert encryption_key == settings.OAUTH_ENCRYPTION_KEY
 
     def test_jwt_secret_is_optional(
         self,

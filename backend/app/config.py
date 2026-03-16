@@ -53,8 +53,6 @@ class Settings(BaseSettings):
 
     Опциональные поля:
         APP_ENV: режим работы ("dev" или "prod", по умолчанию "dev")
-        OPENAI_OAUTH_CLIENT_ID: OAuth client ID для OpenAI
-        OAUTH_ENCRYPTION_KEY: ключ шифрования OAuth-токенов (Fernet)
         JWT_SECRET: секрет для подписи JWT
         WEBHOOK_URL: URL вебхука для Telegram
         WEBHOOK_SECRET: секрет верификации вебхука
@@ -75,9 +73,7 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str
     OPENAI_API_KEY: str
 
-    # --- OAuth и безопасность ---
-    OPENAI_OAUTH_CLIENT_ID: str | None = None
-    OAUTH_ENCRYPTION_KEY: str | None = None
+    # --- Безопасность ---
     JWT_SECRET: str | None = None
 
     # --- Вебхук ---

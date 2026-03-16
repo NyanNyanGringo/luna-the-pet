@@ -13,7 +13,6 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from aiogram.types import Update
-from backend.app.api.auth import auth_router
 from backend.app.bot.create import bot, dp
 from backend.app.config import Settings
 from fastapi import FastAPI, Request
@@ -148,7 +147,6 @@ async def _setup_webhook() -> None:
 
 
 app = FastAPI(title="Luna the Dog", lifespan=lifespan)
-app.include_router(auth_router)
 
 
 @app.get("/api/health")

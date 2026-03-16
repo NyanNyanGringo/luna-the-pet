@@ -29,8 +29,6 @@ _SESSION_ENV_VARIABLES = {
 # предотвращает утечку значений из .env или системного окружения
 _OPTIONAL_ENV_VARIABLES = [
     "APP_ENV",
-    "OPENAI_OAUTH_CLIENT_ID",
-    "OAUTH_ENCRYPTION_KEY",
     "JWT_SECRET",
     "WEBHOOK_URL",
     "WEBHOOK_SECRET",

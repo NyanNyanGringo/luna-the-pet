@@ -168,23 +168,13 @@ def _seed_workspace_activity_rows(database_url: str) -> None:
 
 
 def _seed_legacy_rows_for_workspace_upgrade(database_url: str) -> None:
-    """Добавляет legacy-данные в family/pet/oauth перед upgrade до workspace."""
+    """Добавляет legacy-данные в family/pet перед upgrade до workspace."""
     asyncio.run(_insert_legacy_rows_for_workspace_upgrade(database_url))
 
 
 def _count_null_values(database_url: str, table_name: str, column_name: str) -> int:
     """Считает строки с NULL в указанной колонке таблицы."""
     return asyncio.run(_read_null_values(database_url, table_name, column_name))
-
-
-def _seed_workspace_oauth_duplicates_by_provider(database_url: str) -> None:
-    """Создаёт дубликаты oauth_credential по provider в workspace-схеме."""
-    asyncio.run(_insert_workspace_oauth_duplicates_by_provider(database_url))
-
-
-def _legacy_oauth_provider_rows(database_url: str, provider: str) -> int:
-    """Возвращает число legacy-строк oauth_credential для provider."""
-    return asyncio.run(_read_legacy_oauth_provider_rows(database_url, provider))
 
 
 def _seed_legacy_conversation_state_for_upgrade(
@@ -295,15 +285,6 @@ async def _insert_workspace_activity_rows(database_url: str) -> None:
 
             await database_connection.execute(
                 text(
-                    "INSERT INTO oauth_credential "
-                    "(telegram_user_id, provider, access_token_enc, "
-                    "refresh_token_enc, expires_at, status) "
-                    "VALUES (9001, 'openai', 'enc-access', "
-                    "'enc-refresh', now(), 'active')"
-                )
-            )
-            await database_connection.execute(
-                text(
                     "INSERT INTO conversation_state "
                     "(telegram_user_id, workspace_id, turn_count) "
                     "VALUES (9004, :workspace_id, 0)"
@@ -358,59 +339,6 @@ async def _insert_legacy_rows_for_workspace_upgrade(database_url: str) -> None:
                 ),
                 {"family_id": family_id},
             )
-            await database_connection.execute(
-                text(
-                    "INSERT INTO oauth_credential "
-                    "(family_id, provider, access_token_enc, refresh_token_enc, "
-                    "expires_at, status) "
-                    "VALUES (:family_id, 'openai', 'legacy-access', "
-                    "'legacy-refresh', now(), 'active')"
-                ),
-                {"family_id": family_id},
-            )
-    finally:
-        await database_engine.dispose()
-
-
-async def _insert_workspace_oauth_duplicates_by_provider(database_url: str) -> None:
-    """Добавляет две workspace oauth_credential с одним provider и разными user."""
-    database_engine = create_async_engine(database_url)
-    try:
-        async with database_engine.begin() as database_connection:
-            await database_connection.execute(
-                text(
-                    "INSERT INTO oauth_credential "
-                    "(telegram_user_id, provider, access_token_enc, "
-                    "refresh_token_enc, expires_at, status) "
-                    "VALUES (9001, 'openai', 'enc-access-1', "
-                    "'enc-refresh-1', now(), 'active')"
-                )
-            )
-            await database_connection.execute(
-                text(
-                    "INSERT INTO oauth_credential "
-                    "(telegram_user_id, provider, access_token_enc, "
-                    "refresh_token_enc, expires_at, status) "
-                    "VALUES (9002, 'openai', 'enc-access-2', "
-                    "'enc-refresh-2', now(), 'active')"
-                )
-            )
-    finally:
-        await database_engine.dispose()
-
-
-async def _read_legacy_oauth_provider_rows(database_url: str, provider: str) -> int:
-    """Считает число oauth_credential для provider после downgrade в legacy."""
-    database_engine = create_async_engine(database_url)
-    try:
-        async with database_engine.begin() as database_connection:
-            result = await database_connection.execute(
-                text(
-                    "SELECT COUNT(*) FROM oauth_credential WHERE provider = :provider"
-                ),
-                {"provider": provider},
-            )
-            return int(result.scalar_one())
     finally:
         await database_engine.dispose()
 
@@ -806,13 +734,7 @@ async def _read_null_values(
         ("pet", "workspace_id"): text(
             "SELECT COUNT(*) FROM pet WHERE workspace_id IS NULL"
         ),
-        ("oauth_credential", "telegram_user_id"): text(
-            "SELECT COUNT(*) FROM oauth_credential WHERE telegram_user_id IS NULL"
-        ),
         ("pet", "family_id"): text("SELECT COUNT(*) FROM pet WHERE family_id IS NULL"),
-        ("oauth_credential", "family_id"): text(
-            "SELECT COUNT(*) FROM oauth_credential WHERE family_id IS NULL"
-        ),
     }
     query = allowed_queries.get((table_name, column_name))
     if query is None:
@@ -830,12 +752,12 @@ async def _read_null_values(
 class TestWorkspacePhase2MigrationRuntime:
     """Runtime-валидация upgrade/downgrade для workspace миграции."""
 
-    def test_upgrade_handles_non_empty_legacy_pet_and_oauth_tables(
+    def test_upgrade_handles_non_empty_legacy_pet_table(
         self,
         postgres_container: PostgresContainer | None,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Upgrade должен мигрировать непустые legacy pet/oauth без падения."""
+        """Upgrade должен мигрировать непустые legacy pet-записи без падения."""
         if postgres_container is None:
             pytest.skip(
                 "Runtime-тест миграций требует testcontainer URL и пропускается "
@@ -867,14 +789,6 @@ class TestWorkspacePhase2MigrationRuntime:
             command.upgrade(alembic_config, WORKSPACE_REVISION)
             assert _get_alembic_version(target_database_url) == WORKSPACE_REVISION
             assert _count_null_values(target_database_url, "pet", "workspace_id") == 0
-            assert (
-                _count_null_values(
-                    target_database_url,
-                    "oauth_credential",
-                    "telegram_user_id",
-                )
-                == 0
-            )
         finally:
             _drop_database(admin_database_url, database_name)
 
@@ -912,14 +826,6 @@ class TestWorkspacePhase2MigrationRuntime:
             command.upgrade(alembic_config, WORKSPACE_REVISION)
             assert _get_alembic_version(target_database_url) == WORKSPACE_REVISION
             assert _column_nullable(target_database_url, "pet", "workspace_id") is False
-            assert (
-                _column_nullable(
-                    target_database_url,
-                    "oauth_credential",
-                    "telegram_user_id",
-                )
-                is False
-            )
         finally:
             _drop_database(admin_database_url, database_name)
 
@@ -1229,7 +1135,7 @@ class TestWorkspacePhase2MigrationRuntime:
         postgres_container: PostgresContainer | None,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Downgrade должен вернуть non-null family_id и заполнить его в pet/oauth."""
+        """Downgrade должен вернуть non-null family_id и заполнить его в pet."""
         if postgres_container is None:
             pytest.skip(
                 "Runtime-тест миграций требует testcontainer URL и пропускается "
@@ -1261,55 +1167,7 @@ class TestWorkspacePhase2MigrationRuntime:
             command.downgrade(alembic_config, PREVIOUS_REVISION)
             assert _get_alembic_version(target_database_url) == PREVIOUS_REVISION
             assert _column_nullable(target_database_url, "pet", "family_id") is False
-            assert (
-                _column_nullable(target_database_url, "oauth_credential", "family_id")
-                is False
-            )
             assert _count_null_values(target_database_url, "pet", "family_id") == 0
-            assert (
-                _count_null_values(target_database_url, "oauth_credential", "family_id")
-                == 0
-            )
-        finally:
-            _drop_database(admin_database_url, database_name)
-
-    def test_downgrade_deduplicates_oauth_provider_rows_for_legacy_unique_constraint(
-        self,
-        postgres_container: PostgresContainer | None,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """Downgrade должен переживать provider-дубликаты и оставлять <=1 строку."""
-        if postgres_container is None:
-            pytest.skip(
-                "Runtime-тест миграций требует testcontainer URL и пропускается "
-                "в режиме TEST_DATABASE_URL."
-            )
-
-        container_database_name = make_url(
-            postgres_container.get_connection_url()
-        ).database
-        database_name = f"workspace_downgrade_oauth_dup_{uuid.uuid4().hex[:8]}"
-        admin_database_url = _build_async_database_url(
-            postgres_container,
-            container_database_name,
-        )
-        target_database_url = _build_async_database_url(
-            postgres_container,
-            database_name,
-        )
-        alembic_config = _build_alembic_config(target_database_url)
-        monkeypatch.setenv("DATABASE_URL", target_database_url)
-        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
-        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-
-        _create_database(admin_database_url, database_name)
-        try:
-            command.upgrade(alembic_config, WORKSPACE_REVISION)
-            _seed_workspace_oauth_duplicates_by_provider(target_database_url)
-
-            command.downgrade(alembic_config, PREVIOUS_REVISION)
-            assert _get_alembic_version(target_database_url) == PREVIOUS_REVISION
-            assert _legacy_oauth_provider_rows(target_database_url, "openai") <= 1
         finally:
             _drop_database(admin_database_url, database_name)
 

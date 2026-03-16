@@ -14,8 +14,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from httpx import ASGITransport, AsyncClient
-
 PROJECT_ROOT_DIRECTORY = Path(__file__).resolve().parents[3]
 BACKEND_WORKING_DIRECTORY = PROJECT_ROOT_DIRECTORY / "backend"
 ROOT_ENV_FILE_PATH = PROJECT_ROOT_DIRECTORY / ".env"
@@ -150,24 +148,3 @@ def test_settings_ignores_backend_env_when_root_env_exists() -> None:
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "False"
-
-
-def test_fastapi_registers_openai_callback_route() -> None:
-    """FastAPI app должен содержать маршрут /api/auth/openai/callback."""
-    main_module = importlib.import_module("app.main")
-    fastapi_app = main_module.app
-
-    route_paths = {route.path for route in fastapi_app.routes if hasattr(route, "path")}
-    assert "/api/auth/openai/callback" in route_paths
-
-
-async def test_openai_callback_endpoint_is_not_404() -> None:
-    """GET /api/auth/openai/callback не должен возвращать 404."""
-    main_module = importlib.import_module("app.main")
-    fastapi_app = main_module.app
-
-    transport = ASGITransport(app=fastapi_app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get("/api/auth/openai/callback")
-
-    assert response.status_code != 404

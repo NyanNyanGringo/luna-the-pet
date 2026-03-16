@@ -3,7 +3,7 @@
   "checkpoint_id": "d96212d71136",
   "strategy": "manual-commit",
   "branch": "006-rejoin-admin-prompt",
-  "checkpoints_count": 2,
+  "checkpoints_count": 5,
   "files_touched": [
     "backend/app/bot/handlers/constants.py",
     "backend/app/bot/handlers/group_events.py",
@@ -11,6 +11,12 @@
     "backend/tests/unit/test_constants.py",
     "backend/tests/unit/test_group_events.py",
     "backend/tests/unit/test_workspace_service.py",
+    "specs/006-rejoin-admin-prompt/checklists/requirements.md",
+    "specs/006-rejoin-admin-prompt/data-model.md",
+    "specs/006-rejoin-admin-prompt/plan.md",
+    "specs/006-rejoin-admin-prompt/quickstart.md",
+    "specs/006-rejoin-admin-prompt/research.md",
+    "specs/006-rejoin-admin-prompt/spec.md",
     "specs/006-rejoin-admin-prompt/tasks.md"
   ],
   "sessions": [
@@ -20,13 +26,20 @@
       "context": "/d9/6212d71136/0/context.md",
       "content_hash": "/d9/6212d71136/0/content_hash.txt",
       "prompt": "/d9/6212d71136/0/prompt.txt"
+    },
+    {
+      "metadata": "/d9/6212d71136/1/metadata.json",
+      "transcript": "/d9/6212d71136/1/full.jsonl",
+      "context": "/d9/6212d71136/1/context.md",
+      "content_hash": "/d9/6212d71136/1/content_hash.txt",
+      "prompt": "/d9/6212d71136/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 1724,
-    "cache_creation_tokens": 110927,
-    "cache_read_tokens": 8034256,
-    "output_tokens": 30325,
-    "api_call_count": 81
+    "input_tokens": 1752,
+    "cache_creation_tokens": 197810,
+    "cache_read_tokens": 9257305,
+    "output_tokens": 47814,
+    "api_call_count": 106
   }
 }

@@ -3,14 +3,27 @@
   "checkpoint_id": "180d724548e2",
   "strategy": "manual-commit",
   "branch": "005-remove-oauth",
-  "checkpoints_count": 14,
+  "checkpoints_count": 18,
   "files_touched": [
+    ".env.example",
     "backend/alembic/versions/2026-03-07_9d200e74902b_initial_phase2_models.py",
     "backend/alembic/versions/2026-03-12_a1b2c3d4e5f6_add_workspace_models.py",
+    "backend/app/agent/brain.py",
+    "backend/app/agent/whisper.py",
     "backend/app/api/auth.py",
+    "backend/app/bot/handlers/commands.py",
+    "backend/app/bot/handlers/constants.py",
+    "backend/app/config.py",
+    "backend/app/db/models/__init__.py",
+    "backend/app/db/models/family.py",
+    "backend/app/main.py",
     "backend/app/services/openai_auth_service.py",
+    "backend/requirements.txt",
     "backend/tests/integration/test_regression_runtime_paths.py",
+    "backend/tests/unit/conftest.py",
+    "backend/tests/unit/test_config.py",
     "backend/tests/unit/test_openai_auth.py",
+    "backend/tests/unit/test_us1_agent.py",
     "backend/tests/unit/test_workspace_migrations.py",
     "specs/005-remove-oauth/checklists/requirements.md",
     "specs/005-remove-oauth/data-model.md",
@@ -62,13 +75,20 @@
       "context": "/18/0d724548e2/5/context.md",
       "content_hash": "/18/0d724548e2/5/content_hash.txt",
       "prompt": "/18/0d724548e2/5/prompt.txt"
+    },
+    {
+      "metadata": "/18/0d724548e2/6/metadata.json",
+      "transcript": "/18/0d724548e2/6/full.jsonl",
+      "context": "/18/0d724548e2/6/context.md",
+      "content_hash": "/18/0d724548e2/6/content_hash.txt",
+      "prompt": "/18/0d724548e2/6/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 128,
-    "cache_creation_tokens": 274557,
-    "cache_read_tokens": 5091823,
-    "output_tokens": 44818,
-    "api_call_count": 86
+    "input_tokens": 197,
+    "cache_creation_tokens": 396153,
+    "cache_read_tokens": 10432435,
+    "output_tokens": 67692,
+    "api_call_count": 151
   }
 }

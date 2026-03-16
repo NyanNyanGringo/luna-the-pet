@@ -1,0 +1,48 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "180d724548e2",
+  "session_id": "ece02a06-c208-4f7f-892b-76f5c85d0e28",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-16T14:28:16.555417Z",
+  "branch": "005-remove-oauth",
+  "checkpoints_count": 4,
+  "files_touched": [
+    ".env.example",
+    "backend/app/agent/brain.py",
+    "backend/app/agent/whisper.py",
+    "backend/app/api/auth.py",
+    "backend/app/bot/handlers/commands.py",
+    "backend/app/bot/handlers/constants.py",
+    "backend/app/config.py",
+    "backend/app/db/models/__init__.py",
+    "backend/app/db/models/family.py",
+    "backend/app/main.py",
+    "backend/app/services/openai_auth_service.py",
+    "backend/requirements.txt",
+    "backend/tests/unit/conftest.py",
+    "backend/tests/unit/test_config.py",
+    "backend/tests/unit/test_openai_auth.py",
+    "backend/tests/unit/test_us1_agent.py",
+    "specs/005-remove-oauth/tasks.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "ff0ead0894c1",
+  "transcript_identifier_at_start": "b04bcc78-8b92-415b-86ae-7a2fd426280a",
+  "token_usage": {
+    "input_tokens": 69,
+    "cache_creation_tokens": 121596,
+    "cache_read_tokens": 5340612,
+    "output_tokens": 22874,
+    "api_call_count": 65
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-16T14:28:16.159654Z",
+    "agent_lines": 174,
+    "human_added": 474,
+    "human_modified": 1,
+    "human_removed": 0,
+    "total_committed": 649,
+    "agent_percentage": 26.810477657935284
+  },
+  "transcript_path": ".claude/projects/-Users-user-github-luna-the-dog-004/ece02a06-c208-4f7f-892b-76f5c85d0e28.jsonl"
+}

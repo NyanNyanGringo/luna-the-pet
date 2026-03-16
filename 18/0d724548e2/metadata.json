@@ -3,7 +3,7 @@
   "checkpoint_id": "180d724548e2",
   "strategy": "manual-commit",
   "branch": "005-remove-oauth",
-  "checkpoints_count": 4,
+  "checkpoints_count": 8,
   "files_touched": [
     "backend/app/api/auth.py",
     "backend/app/services/openai_auth_service.py",
@@ -30,13 +30,20 @@
       "context": "/18/0d724548e2/2/context.md",
       "content_hash": "/18/0d724548e2/2/content_hash.txt",
       "prompt": "/18/0d724548e2/2/prompt.txt"
+    },
+    {
+      "metadata": "/18/0d724548e2/3/metadata.json",
+      "transcript": "/18/0d724548e2/3/full.jsonl",
+      "context": "/18/0d724548e2/3/context.md",
+      "content_hash": "/18/0d724548e2/3/content_hash.txt",
+      "prompt": "/18/0d724548e2/3/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 28,
-    "cache_creation_tokens": 83680,
-    "cache_read_tokens": 124058,
-    "output_tokens": 3439,
-    "api_call_count": 6
+    "input_tokens": 41,
+    "cache_creation_tokens": 97768,
+    "cache_read_tokens": 215670,
+    "output_tokens": 4396,
+    "api_call_count": 11
   }
 }

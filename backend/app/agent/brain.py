@@ -16,9 +16,9 @@ from backend.app.agent.date_utils import current_date_in_timezone
 from backend.app.agent.prompts import build_system_prompt
 from backend.app.agent.tool_handlers import handle_tool_call
 from backend.app.agent.tools import get_tool_definitions
+from backend.app.config import Settings
 from backend.app.db.models.family import ConversationState
 from backend.app.services import workspace_service
-from backend.app.services.openai_auth_service import get_openai_client
 from openai import AsyncOpenAI
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -30,27 +30,10 @@ logger = logging.getLogger(__name__)
 _MAX_TURN_COUNT = 10
 
 
-async def get_ai_client(
-    session: AsyncSession,
-    user_id: int,
-) -> AsyncOpenAI:
-    """Возвращает настроенный AsyncOpenAI клиент для пользователя.
-
-    Делегирует получение клиента в openai_auth_service, который
-    выбирает OAuth или API key в зависимости от наличия credentials.
-
-    Аргументы:
-        session: AsyncSession для чтения OAuth credentials из БД
-        user_id: Telegram user ID для поиска OAuth credential
-
-    Возвращает:
-        AsyncOpenAI: настроенный клиент для запросов к OpenAI API
-
-    Побочные эффекты:
-        Может выполнить HTTP-запрос при refresh OAuth токена.
-    """
-    logger.debug("Получаем AI-клиент для user_id=%d", user_id)
-    return await get_openai_client(session, member_id=user_id)
+def get_ai_client() -> AsyncOpenAI:
+    """Возвращает настроенный AsyncOpenAI клиент через API-ключ."""
+    settings = Settings()
+    return AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 async def run_agent(
@@ -85,7 +68,7 @@ async def run_agent(
         response_language=response_language,
         workspace_today=workspace_today,
     )
-    client = await get_ai_client(session, user_id)
+    client = get_ai_client()
     tools = get_tool_definitions()
 
     response = await _call_openai(

@@ -76,33 +76,6 @@ def upgrade() -> None:
         sa.UniqueConstraint("family_id", name=op.f("uq_family_settings_family_id")),
     )
     op.create_table(
-        "oauth_credential",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("family_id", sa.Integer(), nullable=False),
-        sa.Column("provider", sa.String(length=50), nullable=False),
-        sa.Column("access_token_enc", sa.Text(), nullable=False),
-        sa.Column("refresh_token_enc", sa.Text(), nullable=False),
-        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("status", sa.String(length=20), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["family_id"],
-            ["family.id"],
-            name=op.f("fk_oauth_credential_family_id_family"),
-            ondelete="CASCADE",
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_oauth_credential")),
-        sa.UniqueConstraint(
-            "family_id", "provider", name=op.f("uq_oauth_credential_family_id")
-        ),
-    )
-    op.create_table(
         "change_log",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("entity_type", sa.String(length=50), nullable=False),
@@ -232,7 +205,6 @@ def downgrade() -> None:
     op.drop_index("ix_changelog_changed_at", table_name="change_log")
     op.drop_index("ix_changelog_actor", table_name="change_log")
     op.drop_table("change_log")
-    op.drop_table("oauth_credential")
     op.drop_table("family_settings")
     op.drop_table("family_member")
     op.drop_table("family")

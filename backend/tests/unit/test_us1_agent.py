@@ -114,7 +114,7 @@ class TestRunAgent:
             ),
             patch(
                 "backend.app.agent.brain.get_ai_client",
-                new=AsyncMock(return_value=SimpleNamespace()),
+                return_value=SimpleNamespace(),
             ),
             patch(
                 "backend.app.agent.brain.get_tool_definitions",

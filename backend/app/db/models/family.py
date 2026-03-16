@@ -1,7 +1,7 @@
 """
 Модели, пережившие переход на workspace-centric архитектуру.
 
-Файл содержит только OAuthCredential и ConversationState.
+Файл содержит ConversationState.
 Legacy-таблицы Family/FamilyMember/FamilySettings удалены из runtime ORM.
 """
 
@@ -21,61 +21,6 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
-
-# ── OAuthCredential (OAuth-токены) ───────────────────────────────────────────
-
-
-class OAuthCredential(Base):
-    """Зашифрованные OAuth-токены для внешних провайдеров (OpenAI и др.).
-
-    Поля:
-        id: автоинкрементный PK
-        telegram_user_id: Telegram user ID владельца OAuth-токена
-        provider: имя провайдера (default "openai")
-        access_token_enc: зашифрованный access token, NOT NULL
-        refresh_token_enc: зашифрованный refresh token, NOT NULL
-        expires_at: срок действия access token (timezone-aware)
-        status: текущий статус (default "active")
-        created_at: дата создания (timezone-aware, server_default)
-        updated_at: дата последнего обновления (timezone-aware, nullable)
-
-    Ограничения:
-        UniqueConstraint: (telegram_user_id, provider) — один токен провайдера
-        на пользователя
-    """
-
-    __tablename__ = "oauth_credential"
-
-    __table_args__ = (UniqueConstraint("telegram_user_id", "provider"),)
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    telegram_user_id: Mapped[int] = mapped_column(
-        BigInteger,
-        nullable=False,
-    )
-    provider: Mapped[str] = mapped_column(
-        String(50),
-        default="openai",
-    )
-    access_token_enc: Mapped[str] = mapped_column(Text)
-    refresh_token_enc: Mapped[str] = mapped_column(Text)
-    expires_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-    )
-    status: Mapped[str] = mapped_column(
-        String(20),
-        default="active",
-    )
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-    )
-    updated_at: Mapped[datetime.datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        default=None,
-    )
-
 
 # ── ConversationState (состояние диалога) ─────────────────────────────────
 

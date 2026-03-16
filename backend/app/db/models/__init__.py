@@ -5,10 +5,7 @@ Re-export всех моделей для Alembic autodiscovery и удобног
 """
 
 from backend.app.db.models.audit import ChangeLog
-from backend.app.db.models.family import (
-    ConversationState,
-    OAuthCredential,
-)
+from backend.app.db.models.family import ConversationState
 from backend.app.db.models.health import (
     EmergencyProfile,
     MedicalRecord,
@@ -34,7 +31,6 @@ __all__ = [
     "MedicalRecord",
     "Medication",
     "Note",
-    "OAuthCredential",
     "Pet",
     "Vaccination",
     "WeightRecord",

@@ -10,7 +10,7 @@ Auto-generated from all feature plans. Last updated: 2026-03-07
 - PostgreSQL 16 (asyncpg) (002-dev-environment)
 - Python 3.11+ + FastAPI >=0.115.0, aiogram >=3.15.0, SQLAlchemy[asyncio] >=2.0.36, Pydantic Settings >=2.7.0, OpenAI SDK, APScheduler 3.x (003-group-only-mode)
 - PostgreSQL 16 (asyncpg), Alembic для миграций (003-group-only-mode)
-- Python 3.11+ + FastAPI >=0.115.0, aiogram >=3.15.0, SQLAlchemy[asyncio] >=2.0.36 (006-rejoin-admin-prompt)
+- Python 3.11+ + FastAPI >=0.115.0, aiogram >=3.15.0, SQLAlchemy[asyncio] >=2.0.36, OpenAI SDK, python-jose (005-remove-oauth)
 
 - Python 3.11+, FastAPI, aiogram 3.x, SQLAlchemy 2.x async, Alembic (001-pet-care-assistant)
 - Vue 3 (Vite), Tailwind CSS, DaisyUI (frontend)
@@ -54,7 +54,7 @@ Frontend: Vue 3 Composition API, Tailwind CSS utilities
 All non-code text MUST be in Russian (docs, comments, commits)
 
 ## Recent Changes
-- 006-rejoin-admin-prompt: Added Python 3.11+ + FastAPI >=0.115.0, aiogram >=3.15.0, SQLAlchemy[asyncio] >=2.0.36
+- 005-remove-oauth: Added Python 3.11+ + FastAPI >=0.115.0, aiogram >=3.15.0, SQLAlchemy[asyncio] >=2.0.36, OpenAI SDK, python-jose
 - 003-group-only-mode: Added Python 3.11+ + FastAPI >=0.115.0, aiogram >=3.15.0, SQLAlchemy[asyncio] >=2.0.36, Pydantic Settings >=2.7.0, OpenAI SDK, APScheduler 3.x
 - 002-dev-environment: Added Python 3.11+ + FastAPI >=0.115.0, aiogram >=3.15.0, SQLAlchemy[asyncio] >=2.0.36, Pydantic Settings >=2.7.0
 

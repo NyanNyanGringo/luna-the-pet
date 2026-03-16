@@ -68,11 +68,12 @@ async def _seed_workspace(
     Возвращает:
         Workspace: созданный workspace
     """
-    return await get_or_create_workspace(
+    workspace, _is_new = await get_or_create_workspace(
         session,
         telegram_chat_id=telegram_chat_id,
         title=title,
     )
+    return workspace
 
 
 async def _seed_workspace_with_member(
@@ -110,7 +111,7 @@ async def _create_workspace_in_isolated_session(
 ) -> int:
     """Запускает get_or_create_workspace в отдельной сессии и фиксирует транзакцию."""
     async with session_factory() as isolated_session:
-        workspace = await get_or_create_workspace(
+        workspace, _is_new = await get_or_create_workspace(
             isolated_session,
             telegram_chat_id=telegram_chat_id,
             title=title,
@@ -152,7 +153,7 @@ class TestGetOrCreateWorkspace:
         db_session: AsyncSession,
     ) -> None:
         """Создаёт новый workspace, если не существует."""
-        workspace = await get_or_create_workspace(
+        workspace, is_new = await get_or_create_workspace(
             db_session,
             telegram_chat_id=-1001234567890,
             title="Моя группа",
@@ -162,13 +163,14 @@ class TestGetOrCreateWorkspace:
         assert workspace.id is not None
         assert workspace.telegram_chat_id == -1001234567890
         assert workspace.title == "Моя группа"
+        assert is_new is True
 
     async def test_creates_settings_automatically(
         self,
         db_session: AsyncSession,
     ) -> None:
         """При создании workspace автоматически создаёт WorkspaceSettings."""
-        workspace = await get_or_create_workspace(
+        workspace, _is_new = await get_or_create_workspace(
             db_session,
             telegram_chat_id=-1001234567890,
             title="Группа с настройками",
@@ -190,32 +192,34 @@ class TestGetOrCreateWorkspace:
         db_session: AsyncSession,
     ) -> None:
         """Если workspace уже существует и активен — возвращает как есть."""
-        first = await get_or_create_workspace(
+        first, first_is_new = await get_or_create_workspace(
             db_session,
             telegram_chat_id=-1001234567890,
             title="Первый",
         )
-        second = await get_or_create_workspace(
+        second, second_is_new = await get_or_create_workspace(
             db_session,
             telegram_chat_id=-1001234567890,
             title="Второй",
         )
 
         assert first.id == second.id
+        assert first_is_new is True
+        assert second_is_new is False
 
     async def test_reactivates_inactive_workspace(
         self,
         db_session: AsyncSession,
     ) -> None:
         """Если workspace неактивен — реактивирует и обновляет title."""
-        workspace = await get_or_create_workspace(
+        workspace, _is_new = await get_or_create_workspace(
             db_session,
             telegram_chat_id=-1001234567890,
             title="Старое название",
         )
         await deactivate_workspace(db_session, telegram_chat_id=-1001234567890)
 
-        reactivated = await get_or_create_workspace(
+        reactivated, reactivated_is_new = await get_or_create_workspace(
             db_session,
             telegram_chat_id=-1001234567890,
             title="Новое название",
@@ -224,18 +228,19 @@ class TestGetOrCreateWorkspace:
         assert reactivated.id == workspace.id
         assert reactivated.is_active is True
         assert reactivated.title == "Новое название"
+        assert reactivated_is_new is False
 
     async def test_does_not_create_duplicate(
         self,
         db_session: AsyncSession,
     ) -> None:
         """Повторный вызов не создаёт дубликат в БД."""
-        await get_or_create_workspace(
+        _workspace_1, _is_new_1 = await get_or_create_workspace(
             db_session,
             telegram_chat_id=-1001234567890,
             title="Группа",
         )
-        await get_or_create_workspace(
+        _workspace_2, _is_new_2 = await get_or_create_workspace(
             db_session,
             telegram_chat_id=-1001234567890,
             title="Группа",
@@ -307,7 +312,7 @@ class TestGetOrCreateWorkspace:
         )
         await db_session.flush()
 
-        adopted_workspace = await get_or_create_workspace(
+        adopted_workspace, is_new = await get_or_create_workspace(
             db_session,
             telegram_chat_id=-1001234567001,
             title="Реальная группа",
@@ -316,6 +321,7 @@ class TestGetOrCreateWorkspace:
         assert adopted_workspace.id == legacy_workspace.id
         assert adopted_workspace.telegram_chat_id == -1001234567001
         assert adopted_workspace.title == "Реальная группа"
+        assert is_new is False  # legacy adoption — не новый workspace
 
     async def test_does_not_adopt_legacy_workspace_when_real_workspace_exists(
         self,
@@ -353,7 +359,7 @@ class TestGetOrCreateWorkspace:
         )
         await db_session.flush()
 
-        created_workspace = await get_or_create_workspace(
+        created_workspace, is_new = await get_or_create_workspace(
             db_session,
             telegram_chat_id=-1001234567002,
             title="Новая группа",
@@ -362,6 +368,7 @@ class TestGetOrCreateWorkspace:
         assert created_workspace.id not in {legacy_workspace.id, real_workspace.id}
         assert created_workspace.telegram_chat_id == -1001234567002
         assert legacy_workspace.telegram_chat_id == -LEGACY_WORKSPACE_CHAT_ID_OFFSET - 2
+        assert is_new is True  # новый workspace, не adoption
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -763,7 +770,7 @@ class TestGetUserWorkspaces:
         db_session: AsyncSession,
     ) -> None:
         """Не возвращает workspace, если пользователь — неактивный участник."""
-        workspace, member = await _seed_workspace_with_member(
+        workspace, _member = await _seed_workspace_with_member(
             db_session,
             telegram_chat_id=-1003333333333,
             telegram_user_id=100500,
@@ -970,7 +977,7 @@ class TestSetTimezone:
         """Невалидная таймзона вызывает ValueError."""
         workspace = await _seed_workspace(db_session)
 
-        with pytest.raises(ValueError, match="таймзон|timezone"):
+        with pytest.raises(ValueError, match=r"таймзон|timezone"):
             await set_timezone(
                 db_session,
                 workspace_id=workspace.id,

@@ -3,11 +3,18 @@
   "checkpoint_id": "180d724548e2",
   "strategy": "manual-commit",
   "branch": "005-remove-oauth",
-  "checkpoints_count": 8,
+  "checkpoints_count": 11,
   "files_touched": [
     "backend/app/api/auth.py",
     "backend/app/services/openai_auth_service.py",
-    "backend/tests/unit/test_openai_auth.py"
+    "backend/tests/unit/test_openai_auth.py",
+    "specs/005-remove-oauth/checklists/requirements.md",
+    "specs/005-remove-oauth/data-model.md",
+    "specs/005-remove-oauth/plan.md",
+    "specs/005-remove-oauth/quickstart.md",
+    "specs/005-remove-oauth/research.md",
+    "specs/005-remove-oauth/spec.md",
+    "specs/005-remove-oauth/tasks.md"
   ],
   "sessions": [
     {
@@ -37,13 +44,20 @@
       "context": "/18/0d724548e2/3/context.md",
       "content_hash": "/18/0d724548e2/3/content_hash.txt",
       "prompt": "/18/0d724548e2/3/prompt.txt"
+    },
+    {
+      "metadata": "/18/0d724548e2/4/metadata.json",
+      "transcript": "/18/0d724548e2/4/full.jsonl",
+      "context": "/18/0d724548e2/4/context.md",
+      "content_hash": "/18/0d724548e2/4/content_hash.txt",
+      "prompt": "/18/0d724548e2/4/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 41,
-    "cache_creation_tokens": 97768,
-    "cache_read_tokens": 215670,
-    "output_tokens": 4396,
-    "api_call_count": 11
+    "input_tokens": 67,
+    "cache_creation_tokens": 170509,
+    "cache_read_tokens": 1042307,
+    "output_tokens": 23862,
+    "api_call_count": 32
   }
 }

@@ -11,10 +11,14 @@ from __future__ import annotations
 
 import logging
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.enums import ChatType
 from aiogram.types import ChatMemberUpdated, Message
-from backend.app.bot.handlers.constants import GROUP_WELCOME_TEXT
+from backend.app.bot.handlers.constants import (
+    GROUP_REJOIN_ADMIN_TEXT,
+    GROUP_REJOIN_TEXT,
+    GROUP_WELCOME_TEXT,
+)
 from backend.app.services import workspace_service
 from backend.app.services.workspace_service import is_chat_member_active
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,17 +26,62 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 _GROUP_CHAT_TYPES = {ChatType.GROUP, ChatType.SUPERGROUP}
+_ADMIN_STATUSES = {"administrator", "creator"}
+
+
+async def _is_bot_admin(bot: Bot, chat_id: int) -> bool:
+    """Проверяет, является ли бот администратором группы.
+
+    Аргументы:
+        bot: экземпляр aiogram Bot
+        chat_id: ID Telegram-группы
+
+    Возвращает:
+        bool: True если бот — администратор или создатель группы.
+        При любой ошибке возвращает False (безопасный fallback).
+    """
+    try:
+        member = await bot.get_chat_member(chat_id=chat_id, user_id=bot.id)
+        return member.status in _ADMIN_STATUSES
+    except Exception:
+        logger.warning("Не удалось проверить admin-статус бота в chat_id=%d", chat_id)
+        return False
+
+
+async def _select_greeting(bot: Bot, chat_id: int, is_new: bool) -> str:
+    """Выбирает текст приветствия в зависимости от is_new и admin-статуса.
+
+    Аргументы:
+        bot: экземпляр aiogram Bot
+        chat_id: ID Telegram-группы
+        is_new: True если workspace создан впервые
+
+    Возвращает:
+        str: текст приветственного сообщения
+    """
+    if is_new:
+        return GROUP_WELCOME_TEXT
+
+    if await _is_bot_admin(bot, chat_id):
+        return GROUP_REJOIN_ADMIN_TEXT
+    return GROUP_REJOIN_TEXT
 
 
 async def handle_bot_membership_update(
     event: ChatMemberUpdated,
     session: AsyncSession,
+    bot: Bot,
 ) -> None:
     """Синхронизирует Workspace при изменении статуса бота в группе.
 
     При добавлении бота: создаёт workspace, регистрирует инициатора
-    как участника и отправляет приветствие GROUP_WELCOME_TEXT.
+    как участника и отправляет приветствие (первичное или rejoin).
     При удалении бота: деактивирует workspace.
+
+    Аргументы:
+        event: событие my_chat_member
+        session: асинхронная сессия SQLAlchemy
+        bot: экземпляр aiogram Bot (инжектится автоматически)
     """
     if event.chat.type not in _GROUP_CHAT_TYPES:
         return
@@ -43,11 +92,12 @@ async def handle_bot_membership_update(
     now_active = is_chat_member_active(event.new_chat_member)
 
     if not was_active and now_active:
-        workspace = await workspace_service.get_or_create_workspace(
+        workspace, is_new = await workspace_service.get_or_create_workspace(
             session, chat_id, chat_title
         )
         await _register_initiator(session, workspace.id, event)
-        await event.answer(GROUP_WELCOME_TEXT)
+        greeting_text = await _select_greeting(bot, chat_id, is_new)
+        await event.answer(greeting_text)
         logger.info("Workspace активирован по my_chat_member chat_id=%d", chat_id)
         return
 

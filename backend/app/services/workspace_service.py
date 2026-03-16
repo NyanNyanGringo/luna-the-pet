@@ -36,7 +36,7 @@ async def get_or_create_workspace(
     session: AsyncSession,
     telegram_chat_id: int,
     title: str,
-) -> Workspace:
+) -> tuple[Workspace, bool]:
     """Находит workspace по telegram_chat_id или создаёт новый.
 
     Если workspace найден и неактивен — реактивирует (is_active=True,
@@ -50,7 +50,8 @@ async def get_or_create_workspace(
         title: название группы
 
     Возвращает:
-        Workspace: найденный или созданный workspace
+        tuple[Workspace, bool]: (workspace, is_new) — is_new=True если
+        workspace создан впервые, False если найден или реактивирован.
 
     Побочные эффекты:
         При создании — добавляет Workspace + WorkspaceSettings, делает flush.
@@ -58,32 +59,38 @@ async def get_or_create_workspace(
     """
     workspace = await _find_workspace_by_chat_id(session, telegram_chat_id)
     if workspace is not None:
-        return await _ensure_workspace_active(session, workspace, title)
+        return await _ensure_workspace_active(session, workspace, title), False
 
     legacy_workspace = await _find_single_legacy_workspace_for_adoption(session)
     if legacy_workspace is not None:
         try:
-            return await _adopt_legacy_workspace(
+            adopted = await _adopt_legacy_workspace(
                 session=session,
                 workspace=legacy_workspace,
                 telegram_chat_id=telegram_chat_id,
                 title=title,
             )
+            return adopted, False
         except IntegrityError:
-            return await _get_workspace_after_integrity_error(
+            concurrent = await _get_workspace_after_integrity_error(
                 session=session,
                 telegram_chat_id=telegram_chat_id,
                 title=title,
             )
+            return concurrent, False
 
     try:
-        return await _create_workspace_with_settings(session, telegram_chat_id, title)
+        created = await _create_workspace_with_settings(
+            session, telegram_chat_id, title
+        )
+        return created, True
     except IntegrityError:
-        return await _get_workspace_after_integrity_error(
+        concurrent = await _get_workspace_after_integrity_error(
             session=session,
             telegram_chat_id=telegram_chat_id,
             title=title,
         )
+        return concurrent, False
 
 
 async def _find_single_legacy_workspace_for_adoption(

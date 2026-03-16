@@ -4,6 +4,7 @@
 Покрывает:
 - T023: handle_bot_membership_update — приветствие и регистрация инициатора
 - T024: handle_bot_membership_update — деактивация workspace при удалении бота
+- T004: handle_bot_membership_update — rejoin-приветствие с учётом admin-статуса
 - T030: handle_group_migration — обновление chat_id при миграции группы в супергруппу
 - T033: handle_member_update — регистрация участника при вступлении в группу
 - T034: handle_member_update — деактивация участника при выходе из группы
@@ -94,19 +95,20 @@ class TestBotAdded:
             from_first_name="Алиса",
         )
         session = AsyncMock()
+        bot = MagicMock()
         fake_workspace = MagicMock(id=10)
 
         with (
             patch(
                 "backend.app.bot.handlers.group_events.workspace_service.get_or_create_workspace",
-                new=AsyncMock(return_value=fake_workspace),
+                new=AsyncMock(return_value=(fake_workspace, True)),
             ) as create_mock,
             patch(
                 "backend.app.bot.handlers.group_events.workspace_service.add_or_reactivate_member",
                 new=AsyncMock(),
             ) as member_mock,
         ):
-            await handle_bot_membership_update(event, session)
+            await handle_bot_membership_update(event, session, bot)
 
         create_mock.assert_awaited_once()
         member_mock.assert_awaited_once_with(
@@ -126,18 +128,19 @@ class TestBotAdded:
 
         event = _make_chat_member_updated(old_status="left", new_status="member")
         session = AsyncMock()
+        bot = MagicMock()
 
         with (
             patch(
                 "backend.app.bot.handlers.group_events.workspace_service.get_or_create_workspace",
-                new=AsyncMock(return_value=MagicMock(id=1)),
+                new=AsyncMock(return_value=(MagicMock(id=1), True)),
             ),
             patch(
                 "backend.app.bot.handlers.group_events.workspace_service.add_or_reactivate_member",
                 new=AsyncMock(),
             ),
         ):
-            await handle_bot_membership_update(event, session)
+            await handle_bot_membership_update(event, session, bot)
 
         event.answer.assert_awaited_once_with(GROUP_WELCOME_TEXT)
 
@@ -149,12 +152,13 @@ class TestBotAdded:
 
         event = _make_chat_member_updated(chat_type=ChatType.PRIVATE)
         session = AsyncMock()
+        bot = MagicMock()
 
         with patch(
             "backend.app.bot.handlers.group_events.workspace_service.get_or_create_workspace",
             new=AsyncMock(),
         ) as create_mock:
-            await handle_bot_membership_update(event, session)
+            await handle_bot_membership_update(event, session, bot)
 
         create_mock.assert_not_awaited()
 
@@ -179,12 +183,13 @@ class TestBotRemoved:
             chat_id=-1009999999999,
         )
         session = AsyncMock()
+        bot = MagicMock()
 
         with patch(
             "backend.app.bot.handlers.group_events.workspace_service.deactivate_workspace",
             new=AsyncMock(),
         ) as deactivate_mock:
-            await handle_bot_membership_update(event, session)
+            await handle_bot_membership_update(event, session, bot)
 
         deactivate_mock.assert_awaited_once_with(session, -1009999999999)
 
@@ -530,6 +535,98 @@ class TestGroupMigration:
             await handle_group_migration(message, session)
 
         update_mock.assert_awaited_once_with(session, -1001111111111, -1009999999999)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# T004: Rejoin-приветствие — выбор текста по is_new и admin-статусу
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestRejoinGreeting:
+    """Тесты выбора приветственного сообщения при повторном добавлении бота."""
+
+    async def test_new_workspace_sends_group_welcome_text(self) -> None:
+        """is_new=True → отправляет GROUP_WELCOME_TEXT (первое добавление)."""
+        from backend.app.bot.handlers.constants import GROUP_WELCOME_TEXT
+        from backend.app.bot.handlers.group_events import (
+            handle_bot_membership_update,
+        )
+
+        event = _make_chat_member_updated(old_status="left", new_status="member")
+        session = AsyncMock()
+        bot = MagicMock()
+
+        with (
+            patch(
+                "backend.app.bot.handlers.group_events.workspace_service.get_or_create_workspace",
+                new=AsyncMock(return_value=(MagicMock(id=1), True)),
+            ),
+            patch(
+                "backend.app.bot.handlers.group_events.workspace_service.add_or_reactivate_member",
+                new=AsyncMock(),
+            ),
+        ):
+            await handle_bot_membership_update(event, session, bot)
+
+        event.answer.assert_awaited_once_with(GROUP_WELCOME_TEXT)
+
+    async def test_rejoin_non_admin_sends_rejoin_text(self) -> None:
+        """is_new=False + бот не админ → отправляет GROUP_REJOIN_TEXT."""
+        from backend.app.bot.handlers.constants import GROUP_REJOIN_TEXT
+        from backend.app.bot.handlers.group_events import (
+            handle_bot_membership_update,
+        )
+
+        event = _make_chat_member_updated(old_status="left", new_status="member")
+        session = AsyncMock()
+        bot = MagicMock()
+        bot.id = 123456
+        bot.get_chat_member = AsyncMock(
+            return_value=MagicMock(status="member"),
+        )
+
+        with (
+            patch(
+                "backend.app.bot.handlers.group_events.workspace_service.get_or_create_workspace",
+                new=AsyncMock(return_value=(MagicMock(id=2), False)),
+            ),
+            patch(
+                "backend.app.bot.handlers.group_events.workspace_service.add_or_reactivate_member",
+                new=AsyncMock(),
+            ),
+        ):
+            await handle_bot_membership_update(event, session, bot)
+
+        event.answer.assert_awaited_once_with(GROUP_REJOIN_TEXT)
+
+    async def test_rejoin_admin_sends_rejoin_admin_text(self) -> None:
+        """is_new=False + бот админ → отправляет GROUP_REJOIN_ADMIN_TEXT."""
+        from backend.app.bot.handlers.constants import GROUP_REJOIN_ADMIN_TEXT
+        from backend.app.bot.handlers.group_events import (
+            handle_bot_membership_update,
+        )
+
+        event = _make_chat_member_updated(old_status="left", new_status="member")
+        session = AsyncMock()
+        bot = MagicMock()
+        bot.id = 123456
+        bot.get_chat_member = AsyncMock(
+            return_value=MagicMock(status="administrator"),
+        )
+
+        with (
+            patch(
+                "backend.app.bot.handlers.group_events.workspace_service.get_or_create_workspace",
+                new=AsyncMock(return_value=(MagicMock(id=3), False)),
+            ),
+            patch(
+                "backend.app.bot.handlers.group_events.workspace_service.add_or_reactivate_member",
+                new=AsyncMock(),
+            ),
+        ):
+            await handle_bot_membership_update(event, session, bot)
+
+        event.answer.assert_awaited_once_with(GROUP_REJOIN_ADMIN_TEXT)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

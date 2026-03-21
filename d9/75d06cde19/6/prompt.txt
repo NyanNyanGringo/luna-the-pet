@@ -1,0 +1,74 @@
+---
+name: commit-message-skills
+description: используй когда пользователь просит написать сообщение для коммита.
+---
+
+
+1. Читаем текущий тикет specify (совпадает с именем текущей git branch)
+2. Выполняем `git status`, `git diff` и `git diff --staged`, чтобы увидеть все текущие изменения.
+3. Пишем сообщение для коммита на русском языке, используя следующую структуру:
+```
+{вкртаце что было сделано}
+
+- {перечисляем по-пунктам более подробно}
+- ...
+```
+
+---
+
+Исполни инструкцию @.codex/skills/commit-message-skill/SKILL.md
+
+---
+
+Давай также обновим README.md
+
+---
+
+ruff.....................................................................Failed
+- hook id: ruff
+- exit code: 1
+- files were modified by this hook
+
+backend/tests/unit/test_007_review_fixes_v5.py:142:89: E501 Line too long (99 > 88)
+    |
+140 |             )
+141 |         # handle_tool_call ловит ValueError и возвращает error_occurred
+142 |         assert "blood_type" in result or "ошибка" in result.lower() or "error" in result.lower(), (
+    |                                                                                         ^^^^^^^^^^^ E501
+143 |             "Handler update_pet должен отклонить blood_type. "
+144 |             f"Полученный ответ: {result!r}"
+    |
+
+backend/tests/unit/test_007_review_fixes_v5.py:172:89: E501 Line too long (100 > 88)
+    |
+170 |                 workspace_today=_TODAY,
+171 |             )
+172 |         assert "vet_contact" in result or "ошибка" in result.lower() or "error" in result.lower(), (
+    |                                                                                         ^^^^^^^^^^^^ E501
+173 |             "Handler update_pet должен отклонить vet_contact. "
+174 |             f"Полученный ответ: {result!r}"
+    |
+
+backend/tests/unit/test_007_review_fixes_v5.py:216:9: PT018 Assertion should be broken down into multiple parts
+    |
+214 |               )
+215 |           # Ответ должен быть подтверждением обновления, а не ошибкой
+216 | /         assert "ошибка" not in result.lower() and "error" not in result.lower(), (
+217 | |             "Handler update_pet должен успешно принять валидные поля "
+218 | |             "breed, origin_story, chip_number. "
+219 | |             f"Полученный ответ: {result!r}"
+220 | |         )
+    | |_________^ PT018
+221 |           mock_update.assert_called_once()
+    |
+    = help: Break down assertion into multiple parts
+
+Found 5 errors (2 fixed, 3 remaining).
+
+ruff-format..............................................................Failed
+- hook id: ruff-format
+- files were modified by this hook
+
+5 files reformatted, 16 files left unchanged
+
+mypy.....................................................................Passed

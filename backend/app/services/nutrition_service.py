@@ -52,21 +52,40 @@ async def add_diet_record(
 
     Побочные эффекты:
         При создании открытой диеты автоматически закрывает предыдущую открытую
-        (end_date=new start_date), пишет аудит close/create и делает flush.
+        (end_date = new start_date - 1 day), пишет аудит close/create и делает flush.
     """
     valid_recorded_by = _require_actor_id(recorded_by, "recorded_by")
     workspace_id = await _get_workspace_id_for_pet(session, pet_id)
+    has_explicit_end_date = kwargs.get("end_date") is not None
+    # Базовая валидация: end_date не может быть раньше start_date
+    if has_explicit_end_date:
+        _end_date_raw = kwargs["end_date"]
+        if not isinstance(_end_date_raw, datetime.date):
+            raise TypeError("end_date должен быть datetime.date")
+        _validate_diet_end_date(end_date=_end_date_raw, start_date=start_date)
     open_diets = await _get_open_diets(session, pet_id)
-    if kwargs.get("end_date") is None and open_diets:
+    if open_diets and not has_explicit_end_date:
         _validate_diet_chronology(start_date, open_diets[0].start_date)
+        # Закрываем старую диету днём раньше новой, чтобы не было пересечения
+        close_date = start_date - datetime.timedelta(days=1)
         for open_diet in open_diets:
             await _close_open_diet(
                 session=session,
                 diet=open_diet,
-                end_date=start_date,
+                end_date=close_date,
                 actor_id=valid_recorded_by,
                 workspace_id=workspace_id,
             )
+    elif open_diets and has_explicit_end_date:
+        # Проверяем пересечение с открытыми диетами
+        # Тип уже проверен выше в _validate_diet_end_date
+        new_end_date: datetime.date = kwargs["end_date"]  # type: ignore[assignment]
+        for open_diet in open_diets:
+            if new_end_date >= open_diet.start_date:
+                raise ValueError(
+                    "Некорректная хронология diet_record: "
+                    "новая диета пересекается с открытой записью."
+                )
 
     diet = DietRecord(
         pet_id=pet_id,
@@ -77,18 +96,25 @@ async def add_diet_record(
     )
     session.add(diet)
     await session.flush()
+    diff_json_data: dict[str, object] = {
+        "pet_id": pet_id,
+        "food_brand": food_brand,
+        "start_date": start_date,
+        "recorded_by": valid_recorded_by,
+    }
+    if diet.food_type is not None:
+        diff_json_data["food_type"] = diet.food_type
+    if diet.end_date is not None:
+        diff_json_data["end_date"] = diet.end_date
+    if diet.notes is not None:
+        diff_json_data["notes"] = diet.notes
     await _log_diet_change(
         session=session,
         entity_id=diet.id,
         action="create",
         actor_id=valid_recorded_by,
         workspace_id=workspace_id,
-        diff_json={
-            "pet_id": pet_id,
-            "food_brand": food_brand,
-            "start_date": start_date,
-            "recorded_by": valid_recorded_by,
-        },
+        diff_json=diff_json_data,
     )
 
     logger.info(
@@ -125,30 +151,40 @@ async def get_diet_history(
 async def get_current_diet(
     session: AsyncSession,
     pet_id: int,
+    today: datetime.date | None = None,
 ) -> DietRecord | None:
-    """Возвращает текущую диету питомца (end_date IS NULL).
+    """Возвращает текущую диету питомца.
+
+    Текущей считается диета, у которой end_date IS NULL
+    или end_date >= today (ещё не истекла).
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
         pet_id: ID питомца
+        today: текущая дата workspace (для сравнения с end_date)
 
     Возвращает:
         DietRecord | None: текущая диета или None, если все закрыты
     """
-    result = await session.execute(
-        _open_diets_query(pet_id)
-        .order_by(DietRecord.start_date.desc(), DietRecord.id.desc())
-        .limit(2)
-    )
-    open_diets = list(result.scalars().all())
-    if len(open_diets) > 1:
-        logger.error(
-            "Нарушение данных diet_record: у питомца id=%d "
-            "несколько открытых диет (%d)",
-            pet_id,
-            len(open_diets),
+    query = select(DietRecord).where(DietRecord.pet_id == pet_id)
+    if today is not None:
+        query = query.where(
+            DietRecord.start_date <= today,
+            DietRecord.end_date.is_(None) | (DietRecord.end_date >= today),
         )
-    return open_diets[0] if open_diets else None
+    else:
+        query = query.where(DietRecord.end_date.is_(None))
+    result = await session.execute(
+        query.order_by(DietRecord.start_date.desc(), DietRecord.id.desc()).limit(2)
+    )
+    current_diets = list(result.scalars().all())
+    if len(current_diets) > 1:
+        logger.error(
+            "Нарушение данных diet_record: у питомца id=%d несколько текущих диет (%d)",
+            pet_id,
+            len(current_diets),
+        )
+    return current_diets[0] if current_diets else None
 
 
 async def end_diet_record(
@@ -412,18 +448,21 @@ async def add_feeding_entry(
     )
     session.add(entry)
     await session.flush()
+    diff_json_data: dict[str, object] = {
+        "pet_id": pet_id,
+        "fed_at": valid_fed_at,
+        "food_description": food_description,
+        "recorded_by": valid_recorded_by,
+    }
+    if entry.portion_size is not None:
+        diff_json_data["portion_size"] = entry.portion_size
     await _log_feeding_change(
         session=session,
         entity_id=entry.id,
         action="create",
         actor_id=valid_recorded_by,
         workspace_id=workspace_id,
-        diff_json={
-            "pet_id": pet_id,
-            "fed_at": valid_fed_at,
-            "food_description": food_description,
-            "recorded_by": valid_recorded_by,
-        },
+        diff_json=diff_json_data,
     )
 
     logger.info(
@@ -483,6 +522,8 @@ async def get_feeding_entries(
     session: AsyncSession,
     pet_id: int,
     limit: int = 20,
+    since_dt: datetime.datetime | None = None,
+    until_dt: datetime.datetime | None = None,
 ) -> list[FeedingEntry]:
     """Возвращает записи кормлений питомца, от новых к старым.
 
@@ -490,14 +531,20 @@ async def get_feeding_entries(
         session: асинхронная сессия SQLAlchemy
         pet_id: ID питомца
         limit: максимальное количество записей (по умолчанию 20)
+        since_dt: если указан, возвращает только кормления начиная с этого
+            момента (timezone-aware datetime)
+        until_dt: если указан, возвращает только кормления до этого
+            момента включительно (timezone-aware datetime)
 
     Возвращает:
         list[FeedingEntry]: список записей, отсортированных по fed_at DESC
     """
-    result = await session.execute(
-        select(FeedingEntry)
-        .where(FeedingEntry.pet_id == pet_id)
-        .order_by(FeedingEntry.fed_at.desc())
-        .limit(limit)
-    )
+    query = select(FeedingEntry).where(FeedingEntry.pet_id == pet_id)
+    if since_dt is not None:
+        query = query.where(FeedingEntry.fed_at >= since_dt)
+    if until_dt is not None:
+        query = query.where(FeedingEntry.fed_at <= until_dt)
+    query = query.order_by(FeedingEntry.fed_at.desc())
+    query = query.limit(limit)
+    result = await session.execute(query)
     return list(result.scalars().all())

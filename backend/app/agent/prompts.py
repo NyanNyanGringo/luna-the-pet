@@ -37,10 +37,11 @@ async def build_system_prompt(
     """
     pets = await pet_service.get_workspace_pets(session, workspace_id)
     timezone = await workspace_service.get_timezone(session, workspace_id)
-    pets_section = await _build_pets_section(session, pets)
-
     resolved_language = _resolve_response_language(response_language)
     resolved_workspace_today = workspace_today or current_date_in_timezone(timezone)
+    pets_section = await _build_pets_section(
+        session, pets, resolved_workspace_today, resolved_language
+    )
 
     return _assemble_prompt(
         pets_section=pets_section,
@@ -53,27 +54,40 @@ async def build_system_prompt(
 async def _build_pets_section(
     session: AsyncSession,
     pets: list,
+    workspace_today: datetime.date | None = None,
+    response_language: str = "ru",
 ) -> str:
     """Формирует раздел промпта с информацией о питомцах и их лекарствах.
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
         pets: список питомцев workspace
+        workspace_today: текущая дата workspace для фильтрации
+            активных лекарств (если None — UTC fallback в сервисе)
+        response_language: язык ответа (ru/en)
 
     Возвращает:
         str: текстовый блок с описанием питомцев
     """
     if not pets:
+        if response_language == "en":
+            return "No registered pets in workspace yet."
         return "В workspace пока нет зарегистрированных питомцев."
 
     lines = []
     for pet in pets:
-        lines.append(f"- {pet.name} (вид: {pet.species})")
+        if response_language == "en":
+            lines.append(f"- {pet.name} (species: {pet.species})")
+        else:
+            lines.append(f"- {pet.name} (вид: {pet.species})")
         medications = await health_service.get_medications(
-            session, pet.id, active_only=True
+            session, pet.id, active_only=True, today=workspace_today
         )
         for med in medications:
-            lines.append(f"  Лекарство: {med.name} (дозировка: {med.dosage})")
+            if response_language == "en":
+                lines.append(f"  Medication: {med.name} (dosage: {med.dosage})")
+            else:
+                lines.append(f"  Лекарство: {med.name} (дозировка: {med.dosage})")
 
     return "\n".join(lines)
 
@@ -94,37 +108,73 @@ def _assemble_prompt(
         str: готовый system prompt
     """
     if response_language == "en":
-        return (
-            "You are a workspace pet care assistant.\n"
-            "Respond in English.\n"
-            "Use available tools to record pet-related data.\n"
-            "\n"
-            "IMPORTANT: when calling tools, only pass fields that the user "
-            "explicitly mentioned. Do not ask about or fill in fields "
-            "the user did not bring up.\n"
-            "\n"
-            f"Workspace timezone: {timezone}\n"
-            f"Current workspace date: {workspace_today.isoformat()}\n"
-            "\n"
-            "Workspace pets:\n"
-            f"{pets_section}\n"
-        )
+        return f"""\
+[ROLE]
+You are a workspace pet care assistant.
+Respond in English. Be friendly and helpful.
 
-    return (
-        "Ты — ассистент по уходу за домашними животными workspace.\n"
-        "Отвечай на русском языке. Будь дружелюбным и полезным.\n"
-        "Используй доступные инструменты для записи данных о питомцах.\n"
-        "\n"
-        "ВАЖНО: при вызове инструментов передавай ТОЛЬКО те поля, которые "
-        "пользователь явно упомянул. Не запрашивай и не заполняй поля, "
-        "о которых пользователь не говорил.\n"
-        "\n"
-        f"Таймзона workspace: {timezone}\n"
-        f"Текущая дата workspace: {workspace_today.isoformat()}\n"
-        "\n"
-        "Питомцы workspace:\n"
-        f"{pets_section}\n"
-    )
+[WORKSPACE INFO]
+Workspace timezone: {timezone}
+Current workspace date: {workspace_today.isoformat()}
+Workspace pets:
+{pets_section}
+
+[INSTRUCTIONS]
+- Use available tools to record and read pet-related data.
+  Save new information, answer questions, show history.
+- Always check the required field in tool descriptions —
+  it defines the minimum set of properties for each tool.
+
+[CAPABILITIES]
+- Accept text and respond to user messages
+- Accept voice messages
+- Read and write to the database via available tools
+
+[LIMITATIONS]
+- Cannot process photos or videos
+- Cannot send reminders
+
+[IMPORTANT]
+When calling tools, only pass fields that the user
+explicitly mentioned. Do not fill in fields
+the user did not bring up.
+
+"""
+
+    return f"""\
+[РОЛЬ]
+Ты — ассистент по уходу за домашними животными workspace.
+Отвечай на русском языке. Будь дружелюбным и полезным.
+
+[ИНФОРМАЦИЯ ПО ТЕКУЩЕМУ WORKSPACE]
+Таймзона workspace: {timezone}
+Текущая дата workspace: {workspace_today.isoformat()}
+Питомцы workspace:
+{pets_section}
+
+[ИНСТРУКЦИИ]
+- Используй инструменты для записи и чтения данных
+  о питомцах. Записывай информацию, отвечай на вопросы,
+  показывай историю.
+- В описании инструментов обращай внимание на поле
+  required — это минимальный набор properties
+  для вызова инструмента.
+
+[ЧТО ТЫ УМЕЕШЬ]
+- Принимать текст и отвечать на сообщения от пользователя
+- Принимать голосовые сообщения
+- Записывать и читать базу данных через доступные команды/инструменты
+
+[ЧТО ТЫ НЕ УМЕЕШЬ]
+- Обрабатывать фото и видео
+- Присылать напоминания
+
+[ВАЖНО]
+При вызове инструментов передавай ТОЛЬКО те поля,
+которые пользователь явно упомянул.
+Не заполняй поля, о которых пользователь не говорил.
+
+"""
 
 
 def _resolve_response_language(response_language: str) -> str:

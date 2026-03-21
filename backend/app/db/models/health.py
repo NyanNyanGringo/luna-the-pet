@@ -1,6 +1,6 @@
 """
 Модели здоровья питомца: WeightRecord, Vaccination, MedicalRecord,
-Medication, Note и EmergencyProfile.
+Medication, Note, EmergencyProfile, Measurement, VetVisit, MoodLog и HeatCycle.
 
 Все модели связаны с Pet через pet_id FK. Поле recorded_by хранит
 Telegram user ID автора без внешнего ключа.
@@ -16,6 +16,7 @@ from backend.app.db.base import Base
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -353,4 +354,198 @@ class EmergencyProfile(Base):
         Numeric(5, 2),
         nullable=True,
         default=None,
+    )
+
+
+class Measurement(Base):
+    """Запись физиологического измерения питомца (температура, пульс, дыхание).
+
+    Поля:
+        id: автоинкрементный PK
+        pet_id: FK -> pet.id, NOT NULL, CASCADE
+        measurement_type: тип измерения, NOT NULL, до 50 символов
+        value: числовое значение (Numeric 6,2), NOT NULL
+        unit: единица измерения, NOT NULL, до 20 символов
+        measured_at: дата измерения, NOT NULL
+        recorded_by: Telegram user ID (кто записал, nullable)
+        created_at: дата создания (timezone-aware, server_default)
+
+    Индексы:
+        ix_measurement_pet_measured: (pet_id, measured_at)
+        ix_measurement_pet_type: (pet_id, measurement_type)
+    """
+
+    __tablename__ = "measurement"
+
+    __table_args__ = (
+        Index("ix_measurement_pet_measured", "pet_id", "measured_at"),
+        Index("ix_measurement_pet_type", "pet_id", "measurement_type"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pet_id: Mapped[int] = mapped_column(
+        ForeignKey("pet.id", ondelete="CASCADE"),
+    )
+    measurement_type: Mapped[str] = mapped_column(String(50))
+    value: Mapped[Decimal] = mapped_column(Numeric(6, 2))
+    unit: Mapped[str] = mapped_column(String(20))
+    measured_at: Mapped[datetime.date] = mapped_column(Date)
+    recorded_by: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+        default=None,
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
+
+class VetVisit(Base):
+    """Запись о визите к ветеринару — запланированном или состоявшемся.
+
+    Поля:
+        id: автоинкрементный PK
+        pet_id: FK -> pet.id, NOT NULL, CASCADE
+        clinic: название клиники (nullable), до 300 символов
+        reason: причина визита, NOT NULL, до 500 символов
+        visit_date: дата визита, NOT NULL
+        status: статус визита, NOT NULL, до 20 символов
+        notes: дополнительные заметки (nullable)
+        recorded_by: Telegram user ID (кто записал, nullable)
+        created_at: дата создания (timezone-aware, server_default)
+
+    Индексы:
+        ix_vet_visit_pet_date: (pet_id, visit_date)
+        ix_vet_visit_pet_status: (pet_id, status)
+    """
+
+    __tablename__ = "vet_visit"
+
+    __table_args__ = (
+        Index("ix_vet_visit_pet_date", "pet_id", "visit_date"),
+        Index("ix_vet_visit_pet_status", "pet_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pet_id: Mapped[int] = mapped_column(
+        ForeignKey("pet.id", ondelete="CASCADE"),
+    )
+    clinic: Mapped[str | None] = mapped_column(
+        String(300),
+        nullable=True,
+        default=None,
+    )
+    reason: Mapped[str] = mapped_column(String(500))
+    visit_date: Mapped[datetime.date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(20))
+    notes: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+    )
+    recorded_by: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+        default=None,
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
+
+class MoodLog(Base):
+    """Ежедневное наблюдение за состоянием питомца.
+
+    Поля:
+        id: автоинкрементный PK
+        pet_id: FK -> pet.id, NOT NULL, CASCADE
+        mood: настроение питомца, NOT NULL, до 20 символов
+        appetite: аппетит питомца, NOT NULL, до 20 символов
+        log_date: дата наблюдения, NOT NULL
+        notes: дополнительные заметки (nullable)
+        recorded_by: Telegram user ID (кто записал, nullable)
+        created_at: дата создания (timezone-aware, server_default)
+
+    Индексы:
+        ix_mood_log_pet_date: (pet_id, log_date)
+    """
+
+    __tablename__ = "mood_log"
+
+    __table_args__ = (Index("ix_mood_log_pet_date", "pet_id", "log_date"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pet_id: Mapped[int] = mapped_column(
+        ForeignKey("pet.id", ondelete="CASCADE"),
+    )
+    mood: Mapped[str] = mapped_column(String(20))
+    appetite: Mapped[str] = mapped_column(String(20))
+    log_date: Mapped[datetime.date] = mapped_column(Date)
+    notes: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+    )
+    recorded_by: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+        default=None,
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
+
+class HeatCycle(Base):
+    """Запись о цикле течки для некастрированных самок.
+
+    Поля:
+        id: автоинкрементный PK
+        pet_id: FK -> pet.id, NOT NULL, CASCADE
+        start_date: дата начала цикла, NOT NULL
+        end_date: дата окончания цикла (nullable)
+        notes: дополнительные заметки (nullable)
+        recorded_by: Telegram user ID (кто записал, nullable)
+        created_at: дата создания (timezone-aware, server_default)
+
+    Индексы:
+        ix_heat_cycle_pet_start: (pet_id, start_date)
+    """
+
+    __tablename__ = "heat_cycle"
+
+    __table_args__ = (
+        Index("ix_heat_cycle_pet_start", "pet_id", "start_date"),
+        CheckConstraint(
+            "end_date IS NULL OR end_date >= start_date",
+            name="ck_heat_cycle_end_date_gte_start_date",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pet_id: Mapped[int] = mapped_column(
+        ForeignKey("pet.id", ondelete="CASCADE"),
+    )
+    start_date: Mapped[datetime.date] = mapped_column(Date)
+    end_date: Mapped[datetime.date | None] = mapped_column(
+        Date,
+        nullable=True,
+        default=None,
+    )
+    notes: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+    )
+    recorded_by: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+        default=None,
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
     )

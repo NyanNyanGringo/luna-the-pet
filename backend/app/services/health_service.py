@@ -15,10 +15,14 @@ from decimal import Decimal
 
 from backend.app.db.models.health import (
     EmergencyProfile,
+    HeatCycle,
+    Measurement,
     MedicalRecord,
     Medication,
+    MoodLog,
     Note,
     Vaccination,
+    VetVisit,
     WeightRecord,
 )
 from backend.app.db.models.pet import Pet
@@ -39,6 +43,7 @@ _EMERGENCY_PROFILE_ALLOWED_UPDATE_FIELDS = {
     "latest_weight_snapshot",
 }
 _EMERGENCY_PROFILE_FORBIDDEN_FIELDS = {"id", "pet_id"}
+_VALID_MEDICAL_RECORD_TYPES = {"illness", "checkup", "surgery"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -104,12 +109,14 @@ async def add_weight(
 async def get_weight_history(
     session: AsyncSession,
     pet_id: int,
+    limit: int = 10,
 ) -> list[WeightRecord]:
     """Возвращает историю веса питомца, отсортированную по дате (от новых к старым).
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
         pet_id: ID питомца
+        limit: максимальное количество записей (по умолчанию 10)
 
     Возвращает:
         list[WeightRecord]: список записей, отсортированных по measured_at DESC
@@ -118,6 +125,7 @@ async def get_weight_history(
         select(WeightRecord)
         .where(WeightRecord.pet_id == pet_id)
         .order_by(WeightRecord.measured_at.desc())
+        .limit(limit)
     )
     return list(result.scalars().all())
 
@@ -190,6 +198,12 @@ async def add_vaccination(
     }
     if vaccination.next_date is not None:
         create_diff["next_date"] = vaccination.next_date
+    if vaccination.vet_name is not None:
+        create_diff["vet_name"] = vaccination.vet_name
+    if vaccination.batch_number is not None:
+        create_diff["batch_number"] = vaccination.batch_number
+    if vaccination.notes is not None:
+        create_diff["notes"] = vaccination.notes
     await _log_health_change(
         session=session,
         entity_type="vaccination",
@@ -259,6 +273,22 @@ async def add_medical_record(
     Побочные эффекты:
         Добавляет MedicalRecord в сессию, делает flush и пишет аудит create.
     """
+    if record_type not in _VALID_MEDICAL_RECORD_TYPES:
+        raise ValueError(
+            f"Недопустимый тип медицинской записи: {record_type}. "
+            f"Допустимые: {', '.join(sorted(_VALID_MEDICAL_RECORD_TYPES))}"
+        )
+    # Валидация хронологии: resolved_date не раньше date
+    resolved_date = kwargs.get("resolved_date")
+    if (
+        resolved_date is not None
+        and isinstance(resolved_date, datetime.date)
+        and resolved_date < date
+    ):
+        raise ValueError(
+            "Некорректная хронология medical_record: "
+            "resolved_date не может быть раньше date."
+        )
     valid_recorded_by = _require_recorded_by_in_kwargs(kwargs)
     kwargs["recorded_by"] = valid_recorded_by
     record = MedicalRecord(
@@ -359,6 +389,7 @@ async def add_medication(
     pet_id: int,
     name: str,
     start_date: datetime.date,
+    today: datetime.date | None = None,
     **kwargs: object,
 ) -> Medication:
     """Создаёт запись о лекарстве для питомца.
@@ -368,11 +399,14 @@ async def add_medication(
         pet_id: ID питомца
         name: название препарата
         start_date: дата начала приёма
+        today: текущая дата (для тестируемости); если None —
+            используется UTC-дата на момент вызова
         **kwargs: доп. поля (dosage, frequency, end_date, notes, recorded_by).
             recorded_by обязателен.
 
     Возвращает:
-        Medication: созданная запись (is_active=True по умолчанию)
+        Medication: созданная запись. Если end_date передан и уже в прошлом
+            относительно today — is_active автоматически выставляется в False.
 
     Побочные эффекты:
         Добавляет Medication в сессию, делает flush и пишет аудит create.
@@ -385,6 +419,13 @@ async def add_medication(
         start_date=start_date,
         **kwargs,
     )
+    # Инвариант: завершённый курс (end_date в прошлом) не должен
+    # считаться активным
+    end_date = kwargs.get("end_date")
+    if end_date is not None:
+        effective_today = today or datetime.datetime.now(tz=datetime.UTC).date()
+        if end_date < effective_today:  # type: ignore[operator]
+            medication.is_active = False
     session.add(medication)
     await session.flush()
     create_diff: dict[str, object] = {
@@ -395,6 +436,15 @@ async def add_medication(
     }
     if "dosage" in kwargs and kwargs["dosage"] is not None:
         create_diff["dosage"] = kwargs["dosage"]
+    if "frequency" in kwargs and kwargs["frequency"] is not None:
+        create_diff["frequency"] = kwargs["frequency"]
+    if "end_date" in kwargs and kwargs["end_date"] is not None:
+        create_diff["end_date"] = kwargs["end_date"]
+    if "last_given_date" in kwargs and kwargs["last_given_date"] is not None:
+        create_diff["last_given_date"] = kwargs["last_given_date"]
+    if "notes" in kwargs and kwargs["notes"] is not None:
+        create_diff["notes"] = kwargs["notes"]
+    create_diff["is_active"] = medication.is_active
     await _log_health_change(
         session=session,
         entity_type="medication",
@@ -418,13 +468,16 @@ async def get_medications(
     session: AsyncSession,
     pet_id: int,
     active_only: bool = False,
+    today: datetime.date | None = None,
 ) -> list[Medication]:
     """Возвращает лекарства питомца с опциональным фильтром по активности.
 
     Аргументы:
         session: асинхронная сессия SQLAlchemy
         pet_id: ID питомца
-        active_only: True -- только активные (is_active=True)
+        active_only: True -- только активные (is_active=True и
+            end_date IS NULL или end_date >= today)
+        today: текущая дата workspace (для фильтрации по end_date)
 
     Возвращает:
         list[Medication]: список лекарств
@@ -432,6 +485,15 @@ async def get_medications(
     query = select(Medication).where(Medication.pet_id == pet_id)
     if active_only:
         query = query.where(Medication.is_active.is_(True))
+        # Исключаем просроченные: end_date < today
+        effective_today = (
+            today
+            if today is not None
+            else datetime.datetime.now(tz=datetime.UTC).date()
+        )
+        query = query.where(
+            Medication.end_date.is_(None) | (Medication.end_date >= effective_today)
+        )
     query = query.order_by(Medication.start_date.desc())
 
     result = await session.execute(query)
@@ -568,7 +630,7 @@ async def add_note(
 async def get_notes(
     session: AsyncSession,
     pet_id: int,
-    limit: int = 20,
+    limit: int = 10,
     offset: int = 0,
 ) -> list[Note]:
     """Возвращает заметки питомца с пагинацией, от новых к старым.
@@ -576,7 +638,7 @@ async def get_notes(
     Аргументы:
         session: асинхронная сессия SQLAlchemy
         pet_id: ID питомца
-        limit: максимальное количество записей (по умолчанию 20)
+        limit: максимальное количество записей (по умолчанию 10)
         offset: количество записей для пропуска (по умолчанию 0)
 
     Возвращает:
@@ -815,6 +877,424 @@ def _normalize_blood_type(field_value: object) -> str | None:
     if match is None:
         raise ValueError("Параметр blood_type содержит нераспознаваемое значение.")
     return f"DEA {match.group(1)}{match.group(2)}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# T016: Измерения (Measurement)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_VALID_MEASUREMENT_TYPES = {"temperature", "pulse", "respiration"}
+
+
+async def add_measurement(
+    session: AsyncSession,
+    pet_id: int,
+    measurement_type: str,
+    value: Decimal,
+    unit: str,
+    measured_at: datetime.date,
+    recorded_by: int | None = None,
+) -> Measurement:
+    """Создаёт запись физиологического измерения питомца.
+
+    Аргументы:
+        session: асинхронная сессия SQLAlchemy
+        pet_id: ID питомца
+        measurement_type: тип измерения (temperature/pulse/respiration)
+        value: числовое значение
+        unit: единица измерения
+        measured_at: дата измерения
+        recorded_by: ID участника, записавшего измерение (обязательный)
+
+    Возвращает:
+        Measurement: созданная запись
+
+    Ошибки:
+        ValueError: если measurement_type не входит в допустимые значения
+
+    Побочные эффекты:
+        Добавляет Measurement в сессию, делает flush и пишет аудит create.
+    """
+    if measurement_type not in _VALID_MEASUREMENT_TYPES:
+        raise ValueError(
+            f"Недопустимый тип измерения: {measurement_type}. "
+            f"Допустимые: {', '.join(sorted(_VALID_MEASUREMENT_TYPES))}"
+        )
+    valid_recorded_by = _require_actor_id(recorded_by, "recorded_by")
+    record = Measurement(
+        pet_id=pet_id,
+        measurement_type=measurement_type,
+        value=value,
+        unit=unit,
+        measured_at=measured_at,
+        recorded_by=valid_recorded_by,
+    )
+    session.add(record)
+    await session.flush()
+    await _log_health_change(
+        session=session,
+        entity_type="measurement",
+        entity_id=record.id,
+        pet_id=pet_id,
+        action="create",
+        actor_id=valid_recorded_by,
+        diff_json={
+            "pet_id": pet_id,
+            "measurement_type": measurement_type,
+            "value": value,
+            "unit": unit,
+            "measured_at": measured_at,
+            "recorded_by": valid_recorded_by,
+        },
+    )
+
+    logger.info(
+        "Записано измерение %s=%.2f %s для питомца id=%d на %s",
+        measurement_type,
+        value,
+        unit,
+        pet_id,
+        measured_at,
+    )
+    return record
+
+
+async def get_measurements(
+    session: AsyncSession,
+    pet_id: int,
+    measurement_type: str | None = None,
+    limit: int = 10,
+    start_date: datetime.date | None = None,
+    end_date: datetime.date | None = None,
+) -> list[Measurement]:
+    """Возвращает измерения питомца с опциональными фильтрами.
+
+    Аргументы:
+        session: асинхронная сессия SQLAlchemy
+        pet_id: ID питомца
+        measurement_type: фильтр по типу измерения (None -- все типы)
+        limit: максимальное количество записей (по умолчанию 10)
+        start_date: начальная дата периода (None -- без ограничения)
+        end_date: конечная дата периода (None -- без ограничения)
+
+    Возвращает:
+        list[Measurement]: список записей, отсортированных по measured_at DESC
+    """
+    query = select(Measurement).where(Measurement.pet_id == pet_id)
+    if measurement_type is not None:
+        query = query.where(Measurement.measurement_type == measurement_type)
+    if start_date is not None:
+        query = query.where(Measurement.measured_at >= start_date)
+    if end_date is not None:
+        query = query.where(Measurement.measured_at <= end_date)
+    query = query.order_by(Measurement.measured_at.desc()).limit(limit)
+
+    result = await session.execute(query)
+    return list(result.scalars().all())
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# T016: Визиты к ветеринару (VetVisit)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_VALID_VET_VISIT_STATUSES = {"planned", "completed"}
+
+
+async def add_vet_visit(
+    session: AsyncSession,
+    pet_id: int,
+    reason: str,
+    visit_date: datetime.date,
+    status: str = "planned",
+    recorded_by: int | None = None,
+    **kwargs: object,
+) -> VetVisit:
+    """Создаёт запись о визите к ветеринару.
+
+    Аргументы:
+        session: асинхронная сессия SQLAlchemy
+        pet_id: ID питомца
+        reason: причина визита
+        visit_date: дата визита
+        status: статус визита (planned/completed)
+        recorded_by: ID участника, записавшего визит (обязательный)
+        **kwargs: доп. поля (clinic, notes)
+
+    Возвращает:
+        VetVisit: созданная запись
+
+    Ошибки:
+        ValueError: если status не входит в допустимые значения
+
+    Побочные эффекты:
+        Добавляет VetVisit в сессию, делает flush и пишет аудит create.
+    """
+    if status not in _VALID_VET_VISIT_STATUSES:
+        raise ValueError(
+            f"Недопустимый статус визита: {status}. "
+            f"Допустимые: {', '.join(sorted(_VALID_VET_VISIT_STATUSES))}"
+        )
+    valid_recorded_by = _require_actor_id(recorded_by, "recorded_by")
+    record = VetVisit(
+        pet_id=pet_id,
+        reason=reason,
+        visit_date=visit_date,
+        status=status,
+        recorded_by=valid_recorded_by,
+        **kwargs,
+    )
+    session.add(record)
+    await session.flush()
+    create_diff: dict[str, object] = {
+        "pet_id": pet_id,
+        "reason": reason,
+        "visit_date": visit_date,
+        "status": status,
+        "recorded_by": valid_recorded_by,
+    }
+    if record.clinic is not None:
+        create_diff["clinic"] = record.clinic
+    await _log_health_change(
+        session=session,
+        entity_type="vet_visit",
+        entity_id=record.id,
+        pet_id=pet_id,
+        action="create",
+        actor_id=valid_recorded_by,
+        diff_json=create_diff,
+    )
+
+    logger.info(
+        "Записан визит к ветеринару '%s' для питомца id=%d на %s",
+        reason,
+        pet_id,
+        visit_date,
+    )
+    return record
+
+
+async def get_vet_visits(
+    session: AsyncSession,
+    pet_id: int,
+    status: str | None = None,
+) -> list[VetVisit]:
+    """Возвращает визиты к ветеринару с опциональным фильтром по статусу.
+
+    Аргументы:
+        session: асинхронная сессия SQLAlchemy
+        pet_id: ID питомца
+        status: фильтр по статусу (None -- все статусы)
+
+    Возвращает:
+        list[VetVisit]: список записей, отсортированных по visit_date DESC
+    """
+    query = select(VetVisit).where(VetVisit.pet_id == pet_id)
+    if status is not None:
+        query = query.where(VetVisit.status == status)
+    query = query.order_by(VetVisit.visit_date.desc())
+
+    result = await session.execute(query)
+    return list(result.scalars().all())
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# T016: Наблюдения за состоянием (MoodLog)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_VALID_MOODS = {"excellent", "good", "normal", "poor"}
+_VALID_APPETITES = {"good", "reduced", "none"}
+
+
+async def add_mood_log(
+    session: AsyncSession,
+    pet_id: int,
+    mood: str,
+    appetite: str,
+    log_date: datetime.date,
+    recorded_by: int | None = None,
+    **kwargs: object,
+) -> MoodLog:
+    """Создаёт запись наблюдения за состоянием питомца.
+
+    Аргументы:
+        session: асинхронная сессия SQLAlchemy
+        pet_id: ID питомца
+        mood: настроение (excellent/good/normal/poor)
+        appetite: аппетит (good/reduced/none)
+        log_date: дата наблюдения
+        recorded_by: ID участника, записавшего наблюдение (обязательный)
+        **kwargs: доп. поля (notes)
+
+    Возвращает:
+        MoodLog: созданная запись
+
+    Ошибки:
+        ValueError: если mood или appetite не входят в допустимые значения
+
+    Побочные эффекты:
+        Добавляет MoodLog в сессию, делает flush и пишет аудит create.
+    """
+    if mood not in _VALID_MOODS:
+        raise ValueError(
+            f"Недопустимое настроение: {mood}. "
+            f"Допустимые: {', '.join(sorted(_VALID_MOODS))}"
+        )
+    if appetite not in _VALID_APPETITES:
+        raise ValueError(
+            f"Недопустимый аппетит: {appetite}. "
+            f"Допустимые: {', '.join(sorted(_VALID_APPETITES))}"
+        )
+    valid_recorded_by = _require_actor_id(recorded_by, "recorded_by")
+    record = MoodLog(
+        pet_id=pet_id,
+        mood=mood,
+        appetite=appetite,
+        log_date=log_date,
+        recorded_by=valid_recorded_by,
+        **kwargs,
+    )
+    session.add(record)
+    await session.flush()
+    await _log_health_change(
+        session=session,
+        entity_type="mood_log",
+        entity_id=record.id,
+        pet_id=pet_id,
+        action="create",
+        actor_id=valid_recorded_by,
+        diff_json={
+            "pet_id": pet_id,
+            "mood": mood,
+            "appetite": appetite,
+            "log_date": log_date,
+            "recorded_by": valid_recorded_by,
+        },
+    )
+
+    logger.info(
+        "Записано наблюдение (mood=%s, appetite=%s) для питомца id=%d на %s",
+        mood,
+        appetite,
+        pet_id,
+        log_date,
+    )
+    return record
+
+
+async def get_mood_logs(
+    session: AsyncSession,
+    pet_id: int,
+    limit: int = 10,
+) -> list[MoodLog]:
+    """Возвращает наблюдения за состоянием питомца.
+
+    Аргументы:
+        session: асинхронная сессия SQLAlchemy
+        pet_id: ID питомца
+        limit: максимальное количество записей (по умолчанию 10)
+
+    Возвращает:
+        list[MoodLog]: список записей, отсортированных по log_date DESC
+    """
+    result = await session.execute(
+        select(MoodLog)
+        .where(MoodLog.pet_id == pet_id)
+        .order_by(MoodLog.log_date.desc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# T016: Циклы течки (HeatCycle)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def add_heat_cycle(
+    session: AsyncSession,
+    pet_id: int,
+    start_date: datetime.date,
+    recorded_by: int | None = None,
+    **kwargs: object,
+) -> HeatCycle:
+    """Создаёт запись о цикле течки.
+
+    Аргументы:
+        session: асинхронная сессия SQLAlchemy
+        pet_id: ID питомца
+        start_date: дата начала цикла
+        recorded_by: ID участника, записавшего цикл (обязательный)
+        **kwargs: доп. поля (end_date, notes)
+
+    Возвращает:
+        HeatCycle: созданная запись
+
+    Побочные эффекты:
+        Добавляет HeatCycle в сессию, делает flush и пишет аудит create.
+    """
+    valid_recorded_by = _require_actor_id(recorded_by, "recorded_by")
+    # Базовая валидация: end_date не может быть раньше start_date
+    end_date_val = kwargs.get("end_date")
+    if end_date_val is not None:
+        if not isinstance(end_date_val, datetime.date):
+            raise TypeError("end_date должен быть datetime.date")
+        if end_date_val < start_date:
+            raise ValueError(
+                "Некорректная хронология heat_cycle: end_date не может быть "
+                "раньше start_date."
+            )
+    record = HeatCycle(
+        pet_id=pet_id,
+        start_date=start_date,
+        recorded_by=valid_recorded_by,
+        **kwargs,
+    )
+    session.add(record)
+    await session.flush()
+    create_diff: dict[str, object] = {
+        "pet_id": pet_id,
+        "start_date": start_date,
+        "recorded_by": valid_recorded_by,
+    }
+    if record.end_date is not None:
+        create_diff["end_date"] = record.end_date
+    await _log_health_change(
+        session=session,
+        entity_type="heat_cycle",
+        entity_id=record.id,
+        pet_id=pet_id,
+        action="create",
+        actor_id=valid_recorded_by,
+        diff_json=create_diff,
+    )
+
+    logger.info(
+        "Записан цикл течки для питомца id=%d с %s",
+        pet_id,
+        start_date,
+    )
+    return record
+
+
+async def get_heat_cycles(
+    session: AsyncSession,
+    pet_id: int,
+) -> list[HeatCycle]:
+    """Возвращает циклы течки питомца.
+
+    Аргументы:
+        session: асинхронная сессия SQLAlchemy
+        pet_id: ID питомца
+
+    Возвращает:
+        list[HeatCycle]: список записей, отсортированных по start_date DESC
+    """
+    result = await session.execute(
+        select(HeatCycle)
+        .where(HeatCycle.pet_id == pet_id)
+        .order_by(HeatCycle.start_date.desc())
+    )
+    return list(result.scalars().all())
 
 
 def _require_actor_id(

@@ -5,13 +5,18 @@ Re-export всех моделей для Alembic autodiscovery и удобног
 """
 
 from backend.app.db.models.audit import ChangeLog
+from backend.app.db.models.documents import Document
 from backend.app.db.models.family import ConversationState
 from backend.app.db.models.health import (
     EmergencyProfile,
+    HeatCycle,
+    Measurement,
     MedicalRecord,
     Medication,
+    MoodLog,
     Note,
     Vaccination,
+    VetVisit,
     WeightRecord,
 )
 from backend.app.db.models.nutrition import DietRecord, FeedingEntry
@@ -26,13 +31,18 @@ __all__ = [
     "ChangeLog",
     "ConversationState",
     "DietRecord",
+    "Document",
     "EmergencyProfile",
     "FeedingEntry",
+    "HeatCycle",
+    "Measurement",
     "MedicalRecord",
     "Medication",
+    "MoodLog",
     "Note",
     "Pet",
     "Vaccination",
+    "VetVisit",
     "WeightRecord",
     "Workspace",
     "WorkspaceMember",

@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime
 import inspect
 import logging
+import zoneinfo
 from decimal import Decimal
 
 from backend.app.agent.date_utils import InvalidRuntimeDateError, parse_runtime_date
@@ -26,11 +27,41 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
+_MEASUREMENT_UNIT_MAP = {
+    "temperature": "C",
+    "pulse": "bpm",
+    "respiration": "rpm",
+}
+
+_MEASUREMENT_DISPLAY_UNIT_MAP: dict[str, dict[str, str]] = {
+    "ru": {
+        "temperature": "°C",
+        "pulse": "уд/мин",
+        "respiration": "вд/мин",
+    },
+    "en": {
+        "temperature": "°C",
+        "pulse": "bpm",
+        "respiration": "rpm",
+    },
+}
+
+
+def _get_display_unit(measurement_type: str, response_language: str) -> str:
+    """Возвращает отображаемую единицу измерения по языку."""
+    lang_map = _MEASUREMENT_DISPLAY_UNIT_MAP.get(
+        response_language, _MEASUREMENT_DISPLAY_UNIT_MAP["ru"]
+    )
+    return lang_map.get(measurement_type, measurement_type)
+
+
 _PET_UPDATE_FIELD_WHITELIST = {
     "breed",
     "birth_date",
     "gender",
     "is_neutered",
+    "origin_story",
+    "chip_number",
 }
 _EMERGENCY_UPDATE_FIELD_WHITELIST = {
     "allergies",
@@ -151,12 +182,28 @@ async def _handle_add_vaccination(
         workspace_timezone=workspace_timezone,
         workspace_today=workspace_today,
     )
+    # Опциональные параметры для расширенной записи вакцинации
+    kwargs: dict = {}
+    if "next_date" in arguments:
+        kwargs["next_date"] = _parse_date_field(
+            arguments["next_date"],
+            field_name="next_date",
+            workspace_timezone=workspace_timezone,
+            workspace_today=workspace_today,
+        )
+    if "vet_name" in arguments:
+        kwargs["vet_name"] = arguments["vet_name"]
+    if "batch_number" in arguments:
+        kwargs["batch_number"] = arguments["batch_number"]
+    if "notes" in arguments:
+        kwargs["notes"] = arguments["notes"]
     record = await health_service.add_vaccination(
         session=session,
         pet_id=pet.id,
         vaccine_name=arguments["vaccine_name"],
         date=vaccination_date,
         recorded_by=user_id,
+        **kwargs,
     )
     return get_message(
         "vaccination_saved",
@@ -183,13 +230,35 @@ async def _handle_add_medication(
         workspace_timezone=workspace_timezone,
         workspace_today=workspace_today,
     )
+    # Опциональные параметры для расширенной записи лекарства
+    kwargs: dict = {}
+    if "frequency" in arguments:
+        kwargs["frequency"] = arguments["frequency"]
+    if "end_date" in arguments:
+        kwargs["end_date"] = _parse_date_field(
+            arguments["end_date"],
+            field_name="end_date",
+            workspace_timezone=workspace_timezone,
+            workspace_today=workspace_today,
+        )
+    if "last_given_date" in arguments:
+        kwargs["last_given_date"] = _parse_date_field(
+            arguments["last_given_date"],
+            field_name="last_given_date",
+            workspace_timezone=workspace_timezone,
+            workspace_today=workspace_today,
+        )
+    if "notes" in arguments:
+        kwargs["notes"] = arguments["notes"]
     record = await health_service.add_medication(
         session=session,
         pet_id=pet.id,
         name=arguments["name"],
         start_date=medication_start_date,
+        today=workspace_today,
         dosage=arguments.get("dosage"),
         recorded_by=user_id,
+        **kwargs,
     )
     return get_message(
         "medication_saved",
@@ -240,12 +309,26 @@ async def _handle_add_diet(
         workspace_timezone=workspace_timezone,
         workspace_today=workspace_today,
     )
+    # Опциональные параметры для расширенной записи диеты
+    kwargs: dict = {}
+    if "food_type" in arguments:
+        kwargs["food_type"] = arguments["food_type"]
+    if "end_date" in arguments:
+        kwargs["end_date"] = _parse_date_field(
+            arguments["end_date"],
+            field_name="end_date",
+            workspace_timezone=workspace_timezone,
+            workspace_today=workspace_today,
+        )
+    if "notes" in arguments:
+        kwargs["notes"] = arguments["notes"]
     record = await nutrition_service.add_diet_record(
         session=session,
         pet_id=pet.id,
         food_brand=arguments["food_brand"],
         start_date=diet_start_date,
         recorded_by=user_id,
+        **kwargs,
     )
     return get_message(
         "diet_saved",
@@ -270,12 +353,17 @@ async def _handle_add_feeding(
         raw_value=arguments["fed_at"],
         field_name="fed_at",
     )
+    # Опциональный параметр portion_size
+    kwargs: dict = {}
+    if "portion_size" in arguments:
+        kwargs["portion_size"] = arguments["portion_size"]
     record = await nutrition_service.add_feeding_entry(
         session=session,
         pet_id=pet.id,
         fed_at=fed_at,
         food_description=arguments["food_description"],
         recorded_by=user_id,
+        **kwargs,
     )
     return get_message(
         "feeding_saved",
@@ -403,9 +491,727 @@ async def _handle_get_emergency_profile(
     return _format_emergency_profile(profile, response_language)
 
 
+async def _handle_add_medical_record(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Создаёт медицинскую запись для питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    record_date = _parse_date_field(
+        arguments["date"],
+        field_name="date",
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
+    )
+    # Опциональные параметры
+    kwargs: dict = {}
+    if "description" in arguments:
+        kwargs["description"] = arguments["description"]
+    if "resolved_date" in arguments:
+        kwargs["resolved_date"] = _parse_date_field(
+            arguments["resolved_date"],
+            field_name="resolved_date",
+            workspace_timezone=workspace_timezone,
+            workspace_today=workspace_today,
+        )
+    if "vet_name" in arguments:
+        kwargs["vet_name"] = arguments["vet_name"]
+    record = await health_service.add_medical_record(
+        session=session,
+        pet_id=pet.id,
+        record_type=arguments["record_type"],
+        title=arguments["title"],
+        date=record_date,
+        recorded_by=user_id,
+        **kwargs,
+    )
+    return get_message(
+        "medical_record_saved",
+        language=response_language,
+        title=record.title,
+        record_type=record.record_type,
+        date=record.date,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Обработчики read-инструментов
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def _handle_get_weight_history(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Возвращает историю веса питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    limit = arguments.get("limit", 10)
+    records = await health_service.get_weight_history(
+        session=session,
+        pet_id=pet.id,
+        limit=limit,
+    )
+    if not records:
+        return get_message("no_weight_records", language=response_language)
+    lines = []
+    kg = _l("label_kg", response_language)
+    for record in records:
+        lines.append(f"• {record.measured_at} — {record.weight_kg} {kg}")
+    return "\n".join(lines)
+
+
+async def _handle_get_vaccinations(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Возвращает список вакцинаций питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    records = await health_service.get_vaccinations(
+        session=session,
+        pet_id=pet.id,
+    )
+    if not records:
+        return get_message("no_vaccinations", language=response_language)
+    lines = []
+    for record in records:
+        line = f"• {record.vaccine_name} ({record.date})"
+        if getattr(record, "next_date", None) is not None:
+            line += f", {_l('label_next_date', response_language)}: {record.next_date}"
+        if getattr(record, "vet_name", None) is not None:
+            line += f", {_l('label_vet_name', response_language)}: {record.vet_name}"
+        if getattr(record, "batch_number", None) is not None:
+            batch_lbl = _l("label_batch_number", response_language)
+            line += f", {batch_lbl}: {record.batch_number}"
+        if getattr(record, "notes", None) is not None:
+            line += f", {_l('label_notes', response_language)}: {record.notes}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+async def _handle_get_medications(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Возвращает список лекарств питомца.
+
+    При active_only=False группирует лекарства по секциям:
+    активные и завершённые. При active_only=True — плоский список.
+    """
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    active_only = arguments.get("active_only", False)
+    records = await health_service.get_medications(
+        session=session,
+        pet_id=pet.id,
+        active_only=active_only,
+        today=workspace_today,
+    )
+    if not records:
+        return get_message("no_medications", language=response_language)
+
+    if active_only:
+        return _format_medications_flat(records, response_language)
+    return _format_medications_grouped(
+        records,
+        response_language,
+        workspace_today=workspace_today,
+    )
+
+
+def _format_medication_line(
+    record: object,
+    response_language: str,
+) -> str:
+    """Форматирует одну строку лекарства для вывода."""
+    line = f"• {record.name}"  # type: ignore[union-attr]
+    if getattr(record, "dosage", None) is not None:
+        line += (
+            f", {_l('label_dosage', response_language)}"
+            f": {record.dosage}"  # type: ignore[union-attr]
+        )
+    if getattr(record, "frequency", None) is not None:
+        line += (
+            f", {_l('label_frequency', response_language)}"
+            f": {record.frequency}"  # type: ignore[union-attr]
+        )
+    if getattr(record, "start_date", None) is not None:
+        line += (
+            f", {_l('label_start_date', response_language)}"
+            f": {record.start_date}"  # type: ignore[union-attr]
+        )
+    if getattr(record, "end_date", None) is not None:
+        line += (
+            f", {_l('label_end_date', response_language)}"
+            f": {record.end_date}"  # type: ignore[union-attr]
+        )
+    return line
+
+
+def _format_medications_flat(
+    records: list,
+    response_language: str,
+) -> str:
+    """Плоский список лекарств (для active_only=True)."""
+    lines = [_format_medication_line(r, response_language) for r in records]
+    return "\n".join(lines)
+
+
+def _format_medications_grouped(
+    records: list,
+    response_language: str,
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Группирует лекарства на активные/завершённые секции.
+
+    «Эффективно активным» считается препарат, у которого is_active=True
+    И (end_date IS NULL ИЛИ end_date >= effective_today).
+    """
+    effective_today = workspace_today or datetime.datetime.now(tz=datetime.UTC).date()
+    active = [
+        r
+        for r in records
+        if getattr(r, "is_active", False)
+        and (
+            getattr(r, "end_date", None) is None
+            or getattr(r, "end_date", None) >= effective_today
+        )
+    ]
+    completed = [r for r in records if r not in active]
+
+    lines: list[str] = []
+    active_header = _l("medications_section_active", response_language)
+    lines.append(active_header)
+    if active:
+        for record in active:
+            lines.append(_format_medication_line(record, response_language))
+    else:
+        lines.append(_l("medications_section_empty", response_language))
+
+    completed_header = _l("medications_section_completed", response_language)
+    lines.append(completed_header)
+    if completed:
+        for record in completed:
+            lines.append(_format_medication_line(record, response_language))
+    else:
+        lines.append(_l("medications_section_empty", response_language))
+
+    return "\n".join(lines)
+
+
+async def _handle_get_notes(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Возвращает заметки о питомце."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    limit = arguments.get("limit", 10)
+    records = await health_service.get_notes(
+        session=session,
+        pet_id=pet.id,
+        limit=limit,
+    )
+    if not records:
+        return get_message("no_notes", language=response_language)
+    lines = []
+    for record in records:
+        date_str = getattr(record, "created_at", "")
+        lines.append(f"• {date_str}: {record.content[:100]}")
+    return "\n".join(lines)
+
+
+async def _handle_get_feeding_history(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Возвращает историю кормлений питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    tz = zoneinfo.ZoneInfo(workspace_timezone)
+    today = workspace_today or datetime.datetime.now(tz=datetime.UTC).date()
+
+    # Парсим опциональные даты периода
+    raw_start = arguments.get("start_date")
+    raw_end = arguments.get("end_date")
+    parsed_start = (
+        _parse_date_field(
+            raw_start,
+            field_name="start_date",
+            workspace_timezone=workspace_timezone,
+            workspace_today=workspace_today,
+        )
+        if raw_start is not None
+        else None
+    )
+    parsed_end = (
+        _parse_date_field(
+            raw_end,
+            field_name="end_date",
+            workspace_timezone=workspace_timezone,
+            workspace_today=workspace_today,
+        )
+        if raw_end is not None
+        else None
+    )
+
+    # Вычисляем since_dt / until_dt
+    if parsed_start is not None:
+        since_date = parsed_start
+    elif parsed_end is not None:
+        since_date = parsed_end - datetime.timedelta(days=6)
+    else:
+        since_date = today - datetime.timedelta(days=6)
+
+    since_dt = datetime.datetime.combine(
+        since_date,
+        datetime.time.min,
+        tzinfo=tz,
+    )
+    until_dt = None
+    if parsed_end is not None:
+        until_dt = datetime.datetime.combine(
+            parsed_end,
+            datetime.time(23, 59, 59, 999999),
+            tzinfo=tz,
+        )
+
+    records = await nutrition_service.get_feeding_entries(
+        session=session,
+        pet_id=pet.id,
+        since_dt=since_dt,
+        until_dt=until_dt,
+    )
+    if not records:
+        return get_message("no_feeding_entries", language=response_language)
+    lines = []
+    for record in records:
+        line = f"• {record.fed_at}: {record.food_description}"
+        if getattr(record, "portion_size", None) is not None:
+            portion_lbl = _l("label_portion_size", response_language)
+            line += f", {portion_lbl}: {record.portion_size}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+async def _handle_get_current_diet(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Возвращает текущую диету питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    diet = await nutrition_service.get_current_diet(
+        session=session,
+        pet_id=pet.id,
+        today=workspace_today,
+    )
+    if diet is None:
+        return get_message("no_current_diet", language=response_language)
+    line = f"{_l('label_brand', response_language)}: {diet.food_brand}"
+    if getattr(diet, "food_type", None) is not None:
+        line += f", {_l('label_food_type', response_language)}: {diet.food_type}"
+    if getattr(diet, "start_date", None) is not None:
+        line += f", {_l('label_start_date', response_language)}: {diet.start_date}"
+    if getattr(diet, "notes", None) is not None:
+        line += f", {_l('label_notes', response_language)}: {diet.notes}"
+    return line
+
+
+async def _handle_get_medical_records(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Возвращает медицинские записи питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    record_type = arguments.get("record_type")
+    records = await health_service.get_medical_records(
+        session=session,
+        pet_id=pet.id,
+        record_type=record_type,
+    )
+    if not records:
+        return get_message("no_medical_records", language=response_language)
+    lines = []
+    for record in records:
+        line = f"• [{record.record_type}] {record.title} ({record.date})"
+        if getattr(record, "description", None) is not None:
+            line += (
+                f", {_l('label_description', response_language)}: {record.description}"
+            )
+        if getattr(record, "vet_name", None) is not None:
+            line += f", {_l('label_vet_name', response_language)}: {record.vet_name}"
+        if getattr(record, "resolved_date", None) is not None:
+            resolved_lbl = _l("label_resolved_date", response_language)
+            line += f", {resolved_lbl}: {record.resolved_date}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Обработчики новых сущностей (T019)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def _handle_add_measurement(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Записывает физиологическое измерение питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    measured_at = _parse_date_field(
+        arguments["measured_at"],
+        field_name="measured_at",
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
+    )
+    measurement_type = arguments["measurement_type"]
+    unit = _MEASUREMENT_UNIT_MAP.get(measurement_type, measurement_type)
+    record = await health_service.add_measurement(
+        session=session,
+        pet_id=pet.id,
+        measurement_type=measurement_type,
+        value=Decimal(str(arguments["value"])),
+        unit=unit,
+        measured_at=measured_at,
+        recorded_by=user_id,
+    )
+    display_unit = _get_display_unit(measurement_type, response_language)
+    return get_message(
+        "measurement_saved",
+        language=response_language,
+        measurement_type=record.measurement_type,
+        value=record.value,
+        unit=display_unit,
+    )
+
+
+async def _handle_get_measurements(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Возвращает физиологические измерения питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    measurement_type = arguments.get("measurement_type")
+    limit = arguments.get("limit", 10)
+    # Парсим опциональные даты периода
+    start_date = None
+    end_date = None
+    if "start_date" in arguments:
+        start_date = _parse_date_field(
+            arguments["start_date"],
+            field_name="start_date",
+            workspace_timezone=workspace_timezone,
+            workspace_today=workspace_today,
+        )
+    if "end_date" in arguments:
+        end_date = _parse_date_field(
+            arguments["end_date"],
+            field_name="end_date",
+            workspace_timezone=workspace_timezone,
+            workspace_today=workspace_today,
+        )
+    records = await health_service.get_measurements(
+        session=session,
+        pet_id=pet.id,
+        measurement_type=measurement_type,
+        limit=limit,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    if not records:
+        return get_message("no_measurements", language=response_language)
+    lines = []
+    for record in records:
+        display_unit = _get_display_unit(record.measurement_type, response_language)
+        lines.append(
+            f"• {record.measured_at} — "
+            f"{record.measurement_type}: "
+            f"{record.value} {display_unit}"
+        )
+    return "\n".join(lines)
+
+
+async def _handle_add_vet_visit(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Записывает визит к ветеринару."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    visit_date = _parse_date_field(
+        arguments["visit_date"],
+        field_name="visit_date",
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
+    )
+    # Опциональные параметры
+    kwargs: dict = {}
+    if "status" in arguments:
+        kwargs["status"] = arguments["status"]
+    if "clinic" in arguments:
+        kwargs["clinic"] = arguments["clinic"]
+    if "notes" in arguments:
+        kwargs["notes"] = arguments["notes"]
+    # status передаётся как позиционный, если указан; иначе default в сервисе
+    status = kwargs.pop("status", "planned")
+    record = await health_service.add_vet_visit(
+        session=session,
+        pet_id=pet.id,
+        reason=arguments["reason"],
+        visit_date=visit_date,
+        status=status,
+        recorded_by=user_id,
+        **kwargs,
+    )
+    return get_message(
+        "vet_visit_saved",
+        language=response_language,
+        reason=record.reason,
+        visit_date=record.visit_date,
+    )
+
+
+async def _handle_get_vet_visits(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Возвращает визиты к ветеринару."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    status = arguments.get("status")
+    records = await health_service.get_vet_visits(
+        session=session,
+        pet_id=pet.id,
+        status=status,
+    )
+    if not records:
+        return get_message("no_vet_visits", language=response_language)
+    lines = []
+    for record in records:
+        line = f"• {record.visit_date} — {record.reason} ({record.status})"
+        if getattr(record, "clinic", None) is not None:
+            line += f", {_l('label_clinic', response_language)}: {record.clinic}"
+        if getattr(record, "notes", None) is not None:
+            line += f", {_l('label_notes', response_language)}: {record.notes}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+async def _handle_add_mood_log(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Записывает наблюдение за состоянием питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    log_date = _parse_date_field(
+        arguments["log_date"],
+        field_name="log_date",
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
+    )
+    # Опциональные параметры
+    kwargs: dict = {}
+    if "notes" in arguments:
+        kwargs["notes"] = arguments["notes"]
+    record = await health_service.add_mood_log(
+        session=session,
+        pet_id=pet.id,
+        mood=arguments["mood"],
+        appetite=arguments["appetite"],
+        log_date=log_date,
+        recorded_by=user_id,
+        **kwargs,
+    )
+    return get_message(
+        "mood_log_saved",
+        language=response_language,
+        mood=record.mood,
+        appetite=record.appetite,
+    )
+
+
+async def _handle_get_mood_logs(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Возвращает наблюдения за состоянием питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    limit = arguments.get("limit", 10)
+    records = await health_service.get_mood_logs(
+        session=session,
+        pet_id=pet.id,
+        limit=limit,
+    )
+    if not records:
+        return get_message("no_mood_logs", language=response_language)
+    lines = []
+    for record in records:
+        line = (
+            f"• {record.log_date} — "
+            f"{_l('label_mood', response_language)}: {record.mood}, "
+            f"{_l('label_appetite', response_language)}: {record.appetite}"
+        )
+        if getattr(record, "notes", None) is not None:
+            line += f", {_l('label_notes', response_language)}: {record.notes}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+async def _handle_add_heat_cycle(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Записывает цикл течки питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    start_date = _parse_date_field(
+        arguments["start_date"],
+        field_name="start_date",
+        workspace_timezone=workspace_timezone,
+        workspace_today=workspace_today,
+    )
+    # Опциональные параметры
+    kwargs: dict = {}
+    if "end_date" in arguments:
+        kwargs["end_date"] = _parse_date_field(
+            arguments["end_date"],
+            field_name="end_date",
+            workspace_timezone=workspace_timezone,
+            workspace_today=workspace_today,
+        )
+    if "notes" in arguments:
+        kwargs["notes"] = arguments["notes"]
+    # Доменная валидация: предупреждение для физиологически некорректных случаев
+    warnings: list[str] = []
+    if getattr(pet, "is_neutered", False):
+        warnings.append(
+            get_message("heat_cycle_warning_neutered", language=response_language)
+        )
+    if getattr(pet, "gender", None) == "male":
+        warnings.append(
+            get_message("heat_cycle_warning_male", language=response_language)
+        )
+    record = await health_service.add_heat_cycle(
+        session=session,
+        pet_id=pet.id,
+        start_date=start_date,
+        recorded_by=user_id,
+        **kwargs,
+    )
+    result = get_message(
+        "heat_cycle_saved",
+        language=response_language,
+        start_date=record.start_date,
+    )
+    if warnings:
+        result += "\n" + "\n".join(warnings)
+    return result
+
+
+async def _handle_get_heat_cycles(
+    session: AsyncSession,
+    arguments: dict,
+    user_id: int,
+    workspace_id: int,
+    response_language: str = "ru",
+    workspace_timezone: str = "UTC",
+    workspace_today: datetime.date | None = None,
+) -> str:
+    """Возвращает циклы течки питомца."""
+    pet = await _resolve_pet(session, workspace_id, arguments["pet_name"])
+    records = await health_service.get_heat_cycles(
+        session=session,
+        pet_id=pet.id,
+    )
+    if not records:
+        return get_message("no_heat_cycles", language=response_language)
+    lines = []
+    for record in records:
+        line = f"• {_l('label_start_date', response_language)}: {record.start_date}"
+        if getattr(record, "end_date", None) is not None:
+            line += f", {_l('label_end_date', response_language)}: {record.end_date}"
+        if getattr(record, "notes", None) is not None:
+            line += f", {_l('label_notes', response_language)}: {record.notes}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Вспомогательные функции
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _l(key: str, lang: str) -> str:
+    """Возвращает локализованную метку для форматированного вывода."""
+    return get_message(key, language=lang)
 
 
 async def _resolve_pet(
@@ -771,4 +1577,20 @@ _TOOL_HANDLERS: dict = {
     "create_pet": _handle_create_pet,
     "update_emergency_profile": _handle_update_emergency_profile,
     "get_emergency_profile": _handle_get_emergency_profile,
+    "get_weight_history": _handle_get_weight_history,
+    "get_vaccinations": _handle_get_vaccinations,
+    "get_medications": _handle_get_medications,
+    "get_notes": _handle_get_notes,
+    "get_feeding_history": _handle_get_feeding_history,
+    "get_current_diet": _handle_get_current_diet,
+    "add_medical_record": _handle_add_medical_record,
+    "get_medical_records": _handle_get_medical_records,
+    "add_measurement": _handle_add_measurement,
+    "get_measurements": _handle_get_measurements,
+    "add_vet_visit": _handle_add_vet_visit,
+    "get_vet_visits": _handle_get_vet_visits,
+    "add_mood_log": _handle_add_mood_log,
+    "get_mood_logs": _handle_get_mood_logs,
+    "add_heat_cycle": _handle_add_heat_cycle,
+    "get_heat_cycles": _handle_get_heat_cycles,
 }

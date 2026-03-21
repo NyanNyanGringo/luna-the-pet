@@ -1,0 +1,23 @@
+Findings
+
+  - High — nutrition_service.py:59 add_diet_record() безусловно закрывает текущую открытую диету при любом новом DietRecord. После расширения
+    add_diet это ломает сценарий записи исторической или уже завершённой диеты: текущая диета мутируется задним числом, а историческая запись
+    с более ранним start_date вообще становится невозможной.
+  - High — nutrition_service.py:145 get_current_diet() считает “текущей” любую диету с end_date >= today, но не проверяет start_date <= today.
+    Запланированная на будущее диета начнёт возвращаться как активная уже сегодня.
+  - Medium — tool_handlers.py:665, nutrition_service.py:494, nutrition_service.py:510 get_feeding_history реализован не как “история за
+    период”, а как “первые 20 записей после полуночи UTC”. Для частых кормлений неделя будет тихо обрезаться, а для workspace вне UTC граница
+    периода будет смещена на несколько часов.
+  - Medium — tool_handlers.py:576, tool_handlers.py:699, tool_handlers.py:1016 новые read-handlers собирают ответы жёстко на русском (след.
+    дата, дозировка, Бренд, описание и т.д.) и игнорируют response_language. В английском режиме бот будет отвечать смесью en-сообщений и
+    русского текста.
+  - Medium — health_service.py:245, tools.py:590 add_medical_record документирован как принимающий только illness/checkup/surgery, но
+    record_type вообще не валидируется. В базу можно сохранить произвольное значение, после чего фильтрация
+    get_medical_records(record_type=...) станет ненадёжной.
+
+  Verdict
+  REJECT. Есть 2 high-severity проблемы в диетах и ещё несколько user-visible расхождений с контрактом.
+
+  Checks
+  backend/.venv/bin/pre-commit run --all-files прошёл.
+  backend/.venv/bin/pytest backend/tests/unit прошёл: 585 passed. Эти дефекты сейчас тестами не покрыты.

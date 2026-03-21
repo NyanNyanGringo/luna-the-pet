@@ -1,0 +1,62 @@
+# План исправлений по итогам ревью
+
+  ## Кратко
+
+  Исправить один high-дефект и четыре medium-дефекта без расширения scope фичи:
+
+  1. убрать рассинхрон источников истины для blood_type и vet_contact;
+  2. починить окно get_feeding_history до ровно 7 календарных дней;
+  3. локализовать pets_section в system prompt;
+  4. перестать сохранять локализованные единицы измерения в БД;
+  5. сделать audit diff полным для новых optional-полей.
+
+  ## Ключевые изменения
+
+  - Привести медицинские атрибуты к одному источнику истины.
+    Выбранный вариант по умолчанию: blood_type и vet_contact остаются только в EmergencyProfile как write/read-поля экстренного профиля.
+    Из update_pet удалить эти два поля из tool schema, whitelist и нормализации, не трогая origin_story и chip_number.
+    Поведение get_emergency_profile и update_emergency_profile оставить текущим.
+  - Исправить расчёт периода в get_feeding_history.
+    Для режима без дат использовать диапазон today - 6 days ... today включительно.
+    Для режима только end_date использовать диапазон end_date - 6 days ... end_date включительно.
+    Для режима с start_date оставить явный пользовательский диапазон без авто-сужения.
+    Не менять сортировку и формат ответа.
+  - Локализовать pets_section в prompt builder.
+    _build_pets_section должен принимать язык ответа и строить строки для ru и en без смешения языков.
+    Локализовать и случай пустого списка питомцев, и строки про питомца, и строки про активные лекарства.
+  - Разделить каноническую единицу измерения и отображение.
+    В write-path для measurement хранить в БД нейтральные canonical units:
+    temperature -> C, pulse -> bpm, respiration -> rpm.
+    В read-path форматировать display unit по response_language:
+    ru -> °C / уд/мин / вд/мин, en -> °C / bpm / rpm.
+    Сообщение measurement_saved тоже должно использовать display unit, а не сырое значение из БД.
+  - Дополнить audit diff у расширенных write-path.
+    В add_vaccination логировать next_date, vet_name, batch_number, notes.
+    В add_medication логировать dosage, frequency, end_date, last_given_date, notes, а также итоговый is_active, если он был вычислен.
+    В add_diet_record логировать food_type, end_date, notes.
+    В add_feeding_entry логировать portion_size.
+    Формат audit оставить текущий JSON-safe через существующие helper’ы.
+
+  ## Тесты
+
+  - Обновить unit-тесты для update_pet, чтобы blood_type и vet_contact больше не принимались этим инструментом.
+  - Добавить тесты на get_feeding_history:
+    без дат возвращается ровно 7 дней;
+    с одним end_date тоже ровно 7 дней;
+    start_date не изменяется автоматически.
+  - Добавить тесты на build_system_prompt/_build_pets_section для английского режима без русских строк.
+  - Добавить тесты на measurement:
+    в сервис уходит canonical unit;
+    в ru/en ответах отображаются разные localized units.
+  - Добавить тесты на полноту audit diff для всех перечисленных optional-полей.
+  - После реализации прогнать:
+    backend/.venv/bin/pytest backend/tests/unit -q
+    backend/.venv/bin/pre-commit run --all-files
+
+  ## Предположения и выбранные defaults
+
+  - Pet.blood_type и Pet.vet_contact не используются как обязательный публичный контракт вне agent tools; поэтому их нужно вывести из
+    пользовательского write-path, а не пытаться синхронизировать с EmergencyProfile.
+  - Для единиц измерения canonical format хранится в БД и аудитах, локализация делается только на уровне ответа.
+  - Проверку URL для Document в этот план не включаем, потому что текущий data-model и контракт явно требуют только непустую строку, а не
+    строгую URL-валидацию.

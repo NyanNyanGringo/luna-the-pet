@@ -3,7 +3,7 @@
   "checkpoint_id": "d975d06cde19",
   "strategy": "manual-commit",
   "branch": "007-extend-agent-tools",
-  "checkpoints_count": 12,
+  "checkpoints_count": 13,
   "files_touched": [
     "README.md",
     "backend/alembic/versions/2026-03-17_b5c6d7e8f9a0_add_measurement_vetvisit_moodlog_document_heatcycle.py",
@@ -93,13 +93,20 @@
       "context": "/d9/75d06cde19/8/context.md",
       "content_hash": "/d9/75d06cde19/8/content_hash.txt",
       "prompt": "/d9/75d06cde19/8/prompt.txt"
+    },
+    {
+      "metadata": "/d9/75d06cde19/9/metadata.json",
+      "transcript": "/d9/75d06cde19/9/full.jsonl",
+      "context": "/d9/75d06cde19/9/context.md",
+      "content_hash": "/d9/75d06cde19/9/content_hash.txt",
+      "prompt": "/d9/75d06cde19/9/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 384,
-    "cache_creation_tokens": 935262,
-    "cache_read_tokens": 25505052,
-    "output_tokens": 147699,
-    "api_call_count": 327
+    "input_tokens": 738,
+    "cache_creation_tokens": 1076206,
+    "cache_read_tokens": 28867339,
+    "output_tokens": 165850,
+    "api_call_count": 359
   }
 }

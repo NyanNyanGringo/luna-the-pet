@@ -1,0 +1,95 @@
+Implement the following plan:
+
+# Удалить инструменты документов (add_document, get_documents)
+
+## Контекст
+Бот не умеет принимать фотографии — инструмент `add_document` требует `url`, что бесполезно без обработки файлов. Убираем до реализации приёма фото.
+
+## Файлы и изменения
+
+### 1. `backend/app/agent/tools.py`
+- Удалить `_add_document_tool()` и `_get_documents_tool()`
+- Убрать их из списка в `get_tool_definitions()`
+
+### 2. `backend/app/agent/tool_handlers.py`
+- Удалить `_handle_add_document()` (~строка 1125) и `_handle_get_documents()` (~строка 1162)
+- Убрать `document_service` из импортов (строка 20)
+- Убрать записи `"add_document"` и `"get_documents"` из `_TOOL_HANDLERS` (строки 1666-1667)
+
+### 3. `backend/app/agent/i18n.py`
+- Удалить ключи `document_saved` и `no_documents` из обоих языков (ru/en)
+
+### 4. НЕ трогаем
+- **Модель** `backend/app/db/models/documents.py` — оставляем, таблица уже в БД
+- **Сервис** `backend/app/services/document_service.py` — оставляем, пригодится при реализации фото
+- **Миграция** — не нужна, таблица остаётся
+- **`backend/app/db/models/__init__.py`** — импорт `Document` оставляем (модель остаётся)
+
+### 5. Тесты
+- Убрать/обновить тесты для document в:
+  - `backend/tests/unit/test_007_new_entity_tools.py`
+  - `backend/tests/unit/test_007_new_models.py`
+  - `backend/tests/unit/test_007_review_fixes_v3.py`
+  - `backend/tests/unit/test_007_review_fixes_v4.py`
+
+## Проверка
+- `pytest` — все тесты проходят
+- `ruff check .` — нет ошибок
+- Проверить, что `get_tool_definitions()` возвращает 27 инструментов (было 29, минус 2)
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/user/.REDACTED.jsonl
+
+---
+
+Бот путается в полях, которые обязательные, а какие нет. Давай для всех tools сделаем ему подсказку. Пример было
+
+def _add_diet_tool() -> dict:
+    """Определение инструмента записи диеты."""
+    return {
+        "type": "function",
+        "name": "add_diet",
+        "description": "Добавить запись о диете питомца.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "pet_name": {
+                    "type": "string",
+                    "description": "Имя питомца",
+                },
+                "food_brand": {
+                    "type": "string",
+                    "description": "Бренд / название корма",
+                },
+                "start_date": {
+                    "type": "string",
+                    "description": "Дата начала рациона (YYYY-MM-DD)",
+                },
+                "food_type": {
+                    "type": "string",
+                    "description": "Тип корма (dry, wet, raw, mixed, homemade)",
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "Дата окончания диеты (YYYY-MM-DD)",
+                },
+                "notes": {
+                    "type": "string",
+                    "description": "Заметки",
+                },
+            },
+            "required": ["pet_name", "food_brand", "start_date"],
+        },
+    }
+
+
+Стало
+
+        "description": "Добавить запись о диете питомца. Обязательные параметры - pet_name, food_brand, start_date. Остальные параметры - опциональные.",
+
+
+И важно: должны проходить ruff и другие линтеры, сейчас строчка большая получилась у меня
+
+---
+
+Обнови промпт на английском, чтобы он был схож с русским в @backend/app/agent/prompts.py

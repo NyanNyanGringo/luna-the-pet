@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "d975d06cde19",
+  "strategy": "manual-commit",
+  "branch": "007-extend-agent-tools",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/agent/prompts.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/d9/75d06cde19/0/metadata.json",
+      "transcript": "/d9/75d06cde19/0/full.jsonl",
+      "context": "/d9/75d06cde19/0/context.md",
+      "content_hash": "/d9/75d06cde19/0/content_hash.txt",
+      "prompt": "/d9/75d06cde19/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 70,
+    "cache_creation_tokens": 82646,
+    "cache_read_tokens": 2724107,
+    "output_tokens": 18273,
+    "api_call_count": 45
+  }
+}
